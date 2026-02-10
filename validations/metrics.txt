@@ -1,0 +1,83 @@
+================================================================================
+  FACIAL EMOTION RECOGNITION SYSTEM - TEST SET EVALUATION
+================================================================================
+
+OVERALL PERFORMANCE:
+  Total test samples: 3,589
+  Overall accuracy: 0.6211 (62.11%)
+
+PER-CLASS PERFORMANCE:
+
+Emotion         Samples    Precision    Recall       F1-Score     Support   
+--------------------------------------------------------------------------------
+Angry           467        0.6009       0.5482       0.5733       467       
+Disgust         56         0.2360       0.6786       0.3502       56        
+Fear            496        0.4903       0.5081       0.4990       496       
+Happy           895        0.8769       0.7799       0.8255       895       
+Sad             653        0.5849       0.5697       0.5772       653       
+Surprise        415        0.6979       0.7181       0.7078       415       
+Neutral         607        0.5008       0.5189       0.5097       607       
+--------------------------------------------------------------------------------
+MACRO AVG                  0.5697       0.6173       0.5776       3589      
+WEIGHTED AVG               0.6401       0.6211       0.6280       3589      
+
+================================================================================
+  COMMON MISCLASSIFICATIONS
+================================================================================
+
+Angry:
+  → Sad: 63 samples (13.5%)
+  → Fear: 54 samples (11.6%)
+  → Disgust: 52 samples (11.1%)
+
+Disgust:
+  → Angry: 7 samples (12.5%)
+  → Neutral: 7 samples (12.5%)
+  → Sad: 4 samples (7.1%)
+
+Fear:
+  → Sad: 73 samples (14.7%)
+  → Surprise: 61 samples (12.3%)
+  → Neutral: 61 samples (12.3%)
+
+Happy:
+  → Neutral: 78 samples (8.7%)
+  → Surprise: 68 samples (7.6%)
+  → Sad: 51 samples (5.7%)
+
+Sad:
+  → Neutral: 84 samples (12.9%)
+  → Disgust: 71 samples (10.9%)
+  → Fear: 70 samples (10.7%)
+
+Surprise:
+  → Neutral: 42 samples (10.1%)
+  → Happy: 40 samples (9.6%)
+  → Fear: 35 samples (8.4%)
+
+Neutral:
+  → Fear: 103 samples (17.0%)
+  → Sad: 73 samples (12.0%)
+  → Angry: 58 samples (9.6%)
+
+================================================================================
+  TRAINING CONFIGURATION
+================================================================================
+
+Model: Hybrid CNN + Temporal LSTM
+Dataset: FER-2013
+Training epochs: 10 (dry run validation)
+Batch size: 32
+Learning rate: 0.0001
+Optimizer: Adam
+Loss function: CrossEntropyLoss
+
+Architecture:
+  - Preprocessing: Median Filter + CLAHE
+  - Landmark Detection: MediaPipe (468 points)
+  - Zone Extraction: 5 FACS-based regions
+  - Global CNN: 224x224 → 512 features
+  - Zone CNNs: 5 × (48x48 → 128 features)
+  - Temporal LSTM: 1152 features → 7 classes
+
+================================================================================

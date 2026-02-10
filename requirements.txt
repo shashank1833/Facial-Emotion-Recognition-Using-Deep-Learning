@@ -1,0 +1,36 @@
+# Core Deep Learning
+torch>=2.0.0
+torchvision>=0.15.0
+
+# Computer Vision
+opencv-python>=4.8.0
+mediapipe>=0.10.0
+Pillow>=10.0.0
+
+# Optional: dlib for alternative landmark detection
+# dlib>=19.24.0  # Uncomment if using dlib
+
+# Data Processing
+numpy>=1.24.0
+pandas>=2.0.0
+scikit-learn>=1.3.0
+
+# Visualization
+matplotlib>=3.7.0
+seaborn>=0.12.0
+
+# Configuration
+pyyaml>=6.0
+
+# Progress bars
+tqdm>=4.65.0
+
+# Logging
+tensorboard>=2.13.0
+
+# Augmentation
+albumentations>=1.3.0
+imgaug>=0.4.0
+
+# Utilities
+scipy>=1.11.0
