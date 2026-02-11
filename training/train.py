@@ -147,16 +147,13 @@ class EmotionRecognitionTrainer:
                 for zone_name, zone_tensor in zones.items()
             }
             
-            # Forward pass
-            # Extract CNN features
-            features = self.model.hybrid_cnn(full_faces, zones_device)
-
-            # Add sequence dimension for single frame (batch, 1, feature_dim)
-            features = features.unsqueeze(1)
-
-            # Pass through LSTM (handles sequence length 1)
-            outputs = self.model.temporal_lstm(features)
             
+            # Extract features
+            features = self.model.hybrid_cnn(full_faces, zones_device)
+            
+            # Skip LSTM, use direct classifier
+            # Add a simple classifier head to hybrid_cnn if needed
+            outputs = self.classifier(features)  # Direct classification
             loss = self.criterion(outputs, labels)
             
             # Backward pass

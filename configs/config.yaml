@@ -113,22 +113,47 @@ training:
     horizontal_flip: true
     zoom_range: 0.1
 
+# inference:
+#   video_source: 0  # 0 for webcam, or path to video file
+#   frame_skip: 1  # Process every Nth frame
+#   display:
+#     show_landmarks: true
+#     show_zones: true
+#     show_probabilities: true
+#     font_scale: 0.7
+#     thickness: 2
+  
+#   smoothing:
+#     enabled: true
+#     method: "moving_average"  # Options: moving_average, exponential
+#     window_size: 5
+  
+#   fps_target: 20
+
 # Inference
 inference:
-  video_source: 0  # 0 for webcam, or path to video file
-  frame_skip: 1  # Process every Nth frame
+  # Source type: webcam, image, or video
+  mode: webcam
+  
+  # Video/webcam settings
+  sequence_length: 16
+  frame_stride: 2
+  smoothing_window: 5
+  
+  # Display options
   display:
     show_landmarks: true
     show_zones: true
     show_probabilities: true
-    font_scale: 0.7
-    thickness: 2
   
-  smoothing:
-    enabled: true
-    method: "moving_average"  # Options: moving_average, exponential
-    window_size: 5
+  # Output settings
+  output:
+    save_predictions: true
+    save_visualizations: true
+    create_reports: true
   
+  # Performance settings
+  confidence_threshold: 0.5
   fps_target: 20
 
 # Hardware

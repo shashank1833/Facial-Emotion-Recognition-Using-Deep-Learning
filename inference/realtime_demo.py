@@ -1,18 +1,15 @@
 """
-Real-Time Emotion Recognition Demo
+FIXED Real-Time Emotion Recognition Demo
 
-This script demonstrates real-time emotion recognition from webcam feed.
+This version correctly handles LSTM sequence processing.
 
-Features:
-- Live webcam processing
-- Facial landmark visualization
-- Zone highlighting
-- Emotion prediction with confidence
-- Temporal smoothing for stable predictions
-- FPS display
+Key fixes:
+1. Properly builds feature sequences from frame buffer
+2. Correct tensor shapes for LSTM input
+3. Handles partial buffer filling gracefully
 
 Usage:
-    python inference/realtime_demo.py --model checkpoints/best_model.pth --camera 0
+    python realtime_demo_FIXED.py --model checkpoints/best_model.pth --camera 0
 """
 
 import os
@@ -38,7 +35,7 @@ class RealtimeEmotionRecognition:
     """
     Real-time emotion recognition from webcam.
     
-    Processes video stream and displays emotion predictions with visualizations.
+    FIXED: Properly handles LSTM sequence processing.
     """
     
     def __init__(self,
@@ -47,16 +44,7 @@ class RealtimeEmotionRecognition:
                  camera_id: int = 0,
                  sequence_length: int = 16,
                  smoothing_window: int = 5):
-        """
-        Initialize real-time emotion recognition.
-        
-        Args:
-            model_path: Path to trained model checkpoint
-            config_path: Path to configuration file
-            camera_id: Camera device ID (0 for default webcam)
-            sequence_length: Number of frames for LSTM
-            smoothing_window: Window for temporal smoothing of predictions
-        """
+        """Initialize real-time emotion recognition."""
         # Load configuration
         with open(config_path, 'r') as f:
             self.config = yaml.safe_load(f)
@@ -139,9 +127,6 @@ class RealtimeEmotionRecognition:
         """
         Process single frame.
         
-        Args:
-            frame: Input frame (BGR)
-            
         Returns:
             Dictionary with processed data or None if no face detected
         """
@@ -177,28 +162,41 @@ class RealtimeEmotionRecognition:
         }
     
     def predict_emotion(self) -> Optional[tuple]:
-        if len(self.frame_buffer) == 0:
+        """
+        Predict emotion from frame buffer sequence.
+        
+        FIXED: Properly builds sequence tensor for LSTM.
+        
+        Returns:
+            Tuple of (emotion_label, confidence, probabilities) or None
+        """
+        # Need full sequence for LSTM
+        if len(self.frame_buffer) < self.sequence_length:
             return None
 
-        latest_frame = self.frame_buffer[-1]
-
         with torch.no_grad():
-            # 1. Extract hybrid CNN features (1, 1152)
-            features = self.model.hybrid_cnn(
-                latest_frame['full_face'],
-                latest_frame['zones']
-            )
-
-            # 2. ADD sequence dimension for LSTM → (1, 1, 1152)
-            features = features.unsqueeze(1)
-
-            # 3. Pass through FULL LSTM (includes classifier)
-            logits = self.model.temporal_lstm(features)
-
+            # Build feature sequence from all frames in buffer
+            feature_sequence = []
+            
+            for frame_data in self.frame_buffer:
+                # Extract hybrid CNN features for this frame
+                features = self.model.hybrid_cnn(
+                    frame_data['full_face'],
+                    frame_data['zones']
+                )
+                feature_sequence.append(features)
+            
+            # Stack features into sequence tensor
+            # Shape: (batch=1, seq_len=16, features=1152)
+            feature_sequence = torch.stack(feature_sequence, dim=1)
+            
+            # Pass sequence through LSTM
+            logits = self.model.temporal_lstm(feature_sequence)
+            
+            # Get probabilities and prediction
             probabilities = torch.softmax(logits, dim=1)
-
             confidence, predicted = probabilities.max(1)
-
+            
             emotion_idx = predicted.item()
             emotion_label = self.emotions[emotion_idx]
             confidence_val = confidence.item()
@@ -222,7 +220,7 @@ class RealtimeEmotionRecognition:
         if len(self.prediction_buffer) < self.smoothing_window:
             return emotion, confidence
         
-        # Majority voting
+        # Majority voting weighted by confidence
         emotion_counts = {}
         for pred_emotion, pred_conf in self.prediction_buffer:
             if pred_emotion in emotion_counts:
@@ -238,19 +236,7 @@ class RealtimeEmotionRecognition:
     
     def draw_visualizations(self, frame: np.ndarray, frame_data: dict,
                            emotion: str, confidence: float, probs: np.ndarray) -> np.ndarray:
-        """
-        Draw visualizations on frame.
-        
-        Args:
-            frame: Input frame
-            frame_data: Processed frame data
-            emotion: Predicted emotion
-            confidence: Prediction confidence
-            probs: Emotion probabilities
-            
-        Returns:
-            Frame with visualizations
-        """
+        """Draw visualizations on frame."""
         vis_frame = frame.copy()
         
         # Draw landmarks
@@ -302,12 +288,17 @@ class RealtimeEmotionRecognition:
                 cv2.putText(vis_frame, text, (10 + bar_width + 10, y + 15),
                            cv2.FONT_HERSHEY_SIMPLEX, 0.4, (255, 255, 255), 1)
         
+        # Draw buffer status
+        buffer_status = f"Buffer: {len(self.frame_buffer)}/{self.sequence_length}"
+        cv2.putText(vis_frame, buffer_status, (vis_frame.shape[1] - 150, vis_frame.shape[0] - 10),
+                   cv2.FONT_HERSHEY_SIMPLEX, 0.5, (255, 255, 0), 1)
+        
         return vis_frame
     
     def run(self):
         """Run real-time emotion recognition."""
         print("\n" + "="*60)
-        print("  REAL-TIME EMOTION RECOGNITION")
+        print("  REAL-TIME EMOTION RECOGNITION (FIXED)")
         print("="*60)
         print("\nControls:")
         print("  q - Quit")
@@ -324,7 +315,8 @@ class RealtimeEmotionRecognition:
             return
         
         print(f"✓ Camera opened successfully")
-        print("\nPress 'q' to quit\n")
+        print(f"\nFilling frame buffer ({self.sequence_length} frames)...")
+        print("Predictions will start once buffer is full.\n")
         
         import time
         
@@ -345,7 +337,7 @@ class RealtimeEmotionRecognition:
                 # Add to buffer
                 self.frame_buffer.append(frame_data)
                 
-                # Predict emotion
+                # Predict emotion (only when buffer is full)
                 prediction = self.predict_emotion()
                 
                 if prediction is not None:
@@ -360,8 +352,8 @@ class RealtimeEmotionRecognition:
                     )
                 else:
                     vis_frame = frame
-                    cv2.putText(vis_frame, "Collecting frames...", (10, 30),
-                               cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
+                    cv2.putText(vis_frame, f"Filling buffer... ({len(self.frame_buffer)}/{self.sequence_length})", 
+                               (10, 30), cv2.FONT_HERSHEY_SIMPLEX, 1.0, (0, 255, 255), 2)
             else:
                 vis_frame = frame
                 cv2.putText(vis_frame, "No face detected", (10, 30),
@@ -376,7 +368,7 @@ class RealtimeEmotionRecognition:
                        cv2.FONT_HERSHEY_SIMPLEX, 0.6, (255, 255, 0), 2)
             
             # Display
-            cv2.imshow('Real-Time Emotion Recognition', vis_frame)
+            cv2.imshow('Real-Time Emotion Recognition (FIXED)', vis_frame)
             
             # Handle keyboard input
             key = cv2.waitKey(1) & 0xFF
@@ -400,7 +392,7 @@ class RealtimeEmotionRecognition:
 
 def main():
     """Main function."""
-    parser = argparse.ArgumentParser(description='Real-Time Emotion Recognition Demo')
+    parser = argparse.ArgumentParser(description='Real-Time Emotion Recognition Demo (FIXED)')
     parser.add_argument('--model', type=str, required=True,
                        help='Path to trained model checkpoint')
     parser.add_argument('--config', type=str, default='configs/config.yaml',
