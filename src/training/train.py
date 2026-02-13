@@ -68,7 +68,12 @@ class EmotionRecognitionTrainer:
         self.optimizer = self._create_optimizer()
         
         # Loss function
-        self.criterion = nn.CrossEntropyLoss()
+        if 'class_weights' in config and config['class_weights'] is not None:
+            weights = torch.tensor(config['class_weights'], dtype=torch.float32).to(device)
+            print(f"Using class weights: {weights.cpu().numpy()}")
+            self.criterion = nn.CrossEntropyLoss(weight=weights)
+        else:
+            self.criterion = nn.CrossEntropyLoss()
         
         # Learning rate scheduler
         self.scheduler = self._create_scheduler()
@@ -151,9 +156,10 @@ class EmotionRecognitionTrainer:
             # Extract features
             features = self.model.hybrid_cnn(full_faces, zones_device)
             
-            # Skip LSTM, use direct classifier
-            # Add a simple classifier head to hybrid_cnn if needed
-            outputs = self.classifier(features)  # Direct classification
+            # Pass through LSTM
+            # Add sequence dimension (batch, 1, feature_dim)
+            features = features.unsqueeze(1)
+            outputs = self.model.temporal_lstm(features)
             loss = self.criterion(outputs, labels)
             
             # Backward pass
@@ -361,6 +367,10 @@ def main():
                        help='Number of epochs (overrides config)')
     parser.add_argument('--batch_size', type=int, default=None,
                        help='Batch size (overrides config)')
+    parser.add_argument('--output_dir', type=str, default=None,
+                       help='Directory to save checkpoints (overrides config)')
+    parser.add_argument('--emotions', type=str, default=None,
+                       help='Comma-separated list of emotions to train on (e.g., "Angry,Disgust")')
     
     args = parser.parse_args()
     
@@ -373,6 +383,18 @@ def main():
         config['training']['epochs'] = args.epochs
     if args.batch_size is not None:
         config['training']['batch_size'] = args.batch_size
+    if args.output_dir is not None:
+        config['data']['checkpoint_dir'] = args.output_dir
+    
+    # Filter emotions if specified
+    emotion_subset = None
+    if args.emotions:
+        emotion_subset = [e.strip() for e in args.emotions.split(',')]
+        print(f"Training on emotion subset: {emotion_subset}")
+        config['emotions']['classes'] = emotion_subset
+        config['emotions']['num_classes'] = len(emotion_subset)
+        # Update model config too
+        config['model']['lstm']['num_classes'] = len(emotion_subset)
     
     # Set device
     device = args.device if torch.cuda.is_available() else 'cpu'
@@ -381,8 +403,28 @@ def main():
     
     # Create data loaders
     print("Loading datasets...")
-    train_dataset = FER2013Dataset(args.data, usage='Training')
-    val_dataset = FER2013Dataset(args.data, usage='PublicTest')
+    train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset)
+    val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset)
+
+    # Calculate class weights for imbalanced datasets
+    # Always calculate if not explicitly provided in config
+    if config.get('class_weights') is None:
+        class_counts = train_dataset.df['emotion'].value_counts().sort_index().values
+        total_samples = len(train_dataset)
+        num_classes = len(class_counts)
+        
+        # Avoid division by zero if some classes are missing
+        class_weights = np.zeros(num_classes)
+        for i, count in enumerate(class_counts):
+            if count > 0:
+                class_weights[i] = total_samples / (num_classes * count)
+            else:
+                class_weights[i] = 1.0
+        
+        config['class_weights'] = class_weights.tolist()
+        print(f"Calculated class weights: {config['class_weights']}")
+    else:
+        print(f"Using provided class weights from config")
 
     # Adjust for CPU training (no multiprocessing, no pinned memory)
     num_workers = 0 if device == 'cpu' else config['hardware']['num_workers']

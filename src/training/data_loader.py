@@ -46,7 +46,8 @@ class FER2013Dataset(Dataset):
                  preprocessor: Optional[NoiseRobustPreprocessor] = None,
                  zone_extractor: Optional[ZoneExtractor] = None,
                  transform=None,
-                 target_size: int = 224):
+                 target_size: int = 224,
+                 emotion_subset: Optional[List[str]] = None):
         """
         Initialize dataset.
         
@@ -57,10 +58,28 @@ class FER2013Dataset(Dataset):
             zone_extractor: ZoneExtractor instance
             transform: Additional augmentation transforms
             target_size: Size for full face (global CNN input)
+            emotion_subset: Optional list of emotion names to include
         """
         # Load CSV
         self.df = pd.read_csv(csv_path)
         self.df = self.df[self.df['Usage'] == usage].reset_index(drop=True)
+        
+        # Emotion mapping
+        self.emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+        
+        # Filter by emotion subset if specified
+        if emotion_subset:
+            # Map names to indices
+            emotion_to_idx = {name: i for i, name in enumerate(self.emotions)}
+            subset_indices = [emotion_to_idx[name] for name in emotion_subset if name in emotion_to_idx]
+            
+            print(f"Filtering dataset for emotions: {emotion_subset} (indices: {subset_indices})")
+            self.df = self.df[self.df['emotion'].isin(subset_indices)].reset_index(drop=True)
+            
+            # Re-map labels to 0..len(subset)-1 for training
+            label_mapping = {old_idx: new_idx for new_idx, old_idx in enumerate(subset_indices)}
+            self.df['emotion'] = self.df['emotion'].map(label_mapping)
+            print(f"Labels re-mapped: {label_mapping}")
         
         self.usage = usage
         self.target_size = target_size
@@ -72,19 +91,20 @@ class FER2013Dataset(Dataset):
         else:
             self.preprocessor = preprocessor
         
+        # Determine if we should apply min-max normalization
+        # We'll use this if configured in ZoneExtractor
         if zone_extractor is None:
             self.zone_extractor = ZoneExtractor()
         else:
             self.zone_extractor = zone_extractor
+            
+        self.use_minmax = (self.zone_extractor.normalization == 'minmax')
         
         # Landmark detector
         self.landmark_detector = MediaPipeFaceDetector(
             static_image_mode=True,
             min_detection_confidence=0.3
         )
-        
-        # Emotion mapping
-        self.emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
         
         print(f"Loaded {len(self.df)} samples for {usage}")
     
@@ -110,33 +130,75 @@ class FER2013Dataset(Dataset):
         image = self._parse_image(row['pixels'])
         label = int(row['emotion'])
         
+        return self.process_single_image(image, label, idx)
+
+    def process_single_image(self, image: np.ndarray, label: int, sample_id: int = 0) -> Tuple[torch.Tensor, dict, torch.Tensor]:
+        """
+        Processes a single image through the pipeline.
+        
+        Args:
+            image: Input grayscale image
+            label: Emotion label
+            sample_id: ID for logging
+            
+        Returns:
+            Tuple of (full_face, zones_dict, label)
+        """
         # Apply preprocessing
+        # Note: We pass to_grayscale=False because we assume input is already grayscale
+        # or handled by the caller. For FER2013 it's already grayscale.
         image_preprocessed, _ = self.preprocessor.preprocess(image, to_grayscale=False)
         
+        # Apply additional transforms if specified (NOW BEFORE DETECTION)
+        if self.transform is not None:
+            image_preprocessed = self.transform(image_preprocessed)
+            
         # Detect landmarks
-        landmarks_obj = self.landmark_detector.detect_landmarks(image_preprocessed)
+        # FER-2013 images are 48x48, which is too small for MediaPipe.
+        # Upscale to a larger size to improve detection.
+        detection_size = 224
+        image_for_detection = cv2.resize(image_preprocessed, (detection_size, detection_size))
+        landmarks_obj = self.landmark_detector.detect_landmarks(image_for_detection)
         
         if landmarks_obj is None:
             # Fallback: no landmarks detected
-            warnings.warn(f"No landmarks detected for sample {idx}, using whole image")
+            # Instead of zeros, use the whole image as a rough approximation for zones
+            if sample_id % 500 == 0: # Only warn occasionally
+                print(f"  [Info] No landmarks for sample {sample_id}, using whole image fallback")
             
             # Full face (resize to target size)
             full_face = cv2.resize(image_preprocessed, (self.target_size, self.target_size))
-            full_face = full_face.astype(np.float32) / 255.0
             
-            # Empty zones
+            # Use normalization to match ZoneExtractor
+            face_float = full_face.astype(np.float32)
+            if self.use_minmax:
+                min_val, max_val = face_float.min(), face_float.max()
+                full_face = (face_float - min_val) / (max_val - min_val) if max_val > min_val else face_float / 255.0
+            else:
+                full_face = face_float / 255.0
+            
+            # Use whole image for zones too as a fallback
             zone_size = self.zone_extractor.target_size
+            zone_fallback = cv2.resize(image_preprocessed, (zone_size, zone_size))
+            
+            # Use normalization to match ZoneExtractor
+            zone_float = zone_fallback.astype(np.float32)
+            if self.use_minmax:
+                z_min, z_max = zone_float.min(), zone_float.max()
+                zone_fallback = (zone_float - z_min) / (z_max - z_min) if z_max > z_min else zone_float / 255.0
+            else:
+                zone_fallback = zone_float / 255.0
+            
             zones = {
-                'forehead': np.zeros((zone_size, zone_size), dtype=np.float32),
-                'left_eye': np.zeros((zone_size, zone_size), dtype=np.float32),
-                'right_eye': np.zeros((zone_size, zone_size), dtype=np.float32),
-                'nose': np.zeros((zone_size, zone_size), dtype=np.float32),
-                'mouth': np.zeros((zone_size, zone_size), dtype=np.float32)
+                'forehead': zone_fallback,
+                'left_eye': zone_fallback,
+                'right_eye': zone_fallback,
+                'nose': zone_fallback,
+                'mouth': zone_fallback
             }
         else:
-            # Extract zones
             zones_extracted = self.zone_extractor.extract_all_zones(
-                image_preprocessed, 
+                image_for_detection, 
                 landmarks_obj.landmarks
             )
             
@@ -145,29 +207,25 @@ class FER2013Dataset(Dataset):
             }
             
             # Full face (resize)
-            full_face = cv2.resize(image_preprocessed, (self.target_size, self.target_size))
-            full_face = full_face.astype(np.float32) / 255.0
-        
-        # Apply additional transforms if specified
-        if self.transform is not None:
-            # Apply to full face
-            full_face = self.transform(full_face)
+            full_face = cv2.resize(image_for_detection, (self.target_size, self.target_size))
             
-            # Apply to zones
-            for zone_name in zones.keys():
-                zones[zone_name] = self.transform(zones[zone_name])
+            # ZoneExtractor already normalizes, but we need to normalize the full_face here
+            # to match the ZoneExtractor's normalization setting
+            face_float = full_face.astype(np.float32)
+            if self.use_minmax:
+                min_val, max_val = face_float.min(), face_float.max()
+                full_face = (face_float - min_val) / (max_val - min_val) if max_val > min_val else face_float / 255.0
+            else:
+                full_face = face_float / 255.0
         
         # Convert to tensors
-        full_face_tensor = torch.from_numpy(full_face).unsqueeze(0)  # (1, H, W)
+        full_face_tensor = torch.from_numpy(full_face).unsqueeze(0) # (1, H, W)
         
-        zones_tensor = {
-            name: torch.from_numpy(img).unsqueeze(0)  # (1, H, W)
-            for name, img in zones.items()
-        }
-        
-        label_tensor = torch.tensor(label, dtype=torch.long)
-        
-        return full_face_tensor, zones_tensor, label_tensor
+        zones_tensors = {}
+        for name, zone_img in zones.items():
+            zones_tensors[name] = torch.from_numpy(zone_img).unsqueeze(0) # (1, H, W)
+            
+        return full_face_tensor, zones_tensors, torch.tensor(label, dtype=torch.long)
     
     def close(self):
         """Release resources."""

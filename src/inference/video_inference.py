@@ -203,8 +203,8 @@ class VideoEmotionInference(InferenceBase):
             # Extract sequence
             sequence_features = features_list[i:i + self.sequence_length]
             
-            # Stack features: (seq_len, feature_dim) -> (1, seq_len, feature_dim)
-            sequence_tensor = torch.stack(sequence_features, dim=0).unsqueeze(0)
+            # Stack features: [(1, D), (1, D), ...] -> (1, seq_len, feature_dim)
+            sequence_tensor = torch.stack(sequence_features, dim=1)
             
             # Predict
             emotion, confidence, probs = self.predict_with_lstm(sequence_tensor)

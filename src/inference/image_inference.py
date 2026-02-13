@@ -58,7 +58,13 @@ class ImageEmotionInference(InferenceBase):
         
         # Process frame
         print("Detecting face and extracting features...")
-        frame_data = self.process_single_frame(frame)
+
+        # FER-style pre-cropped images (48x48, grayscale-like)
+        if frame.shape[0] <= 64 and frame.shape[1] <= 64:
+            print("✓ Detected pre-cropped FER-style image, skipping face detection")
+            frame_data = self.process_single_frame(frame, skip_detection=True)
+        else:
+            frame_data = self.process_single_frame(frame)
         
         if frame_data is None:
             raise ValueError("No face detected in image")

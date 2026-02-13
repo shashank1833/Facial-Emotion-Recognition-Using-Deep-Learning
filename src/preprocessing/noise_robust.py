@@ -27,7 +27,7 @@ class NoiseRobustPreprocessor:
     """
     
     def __init__(self, 
-                 median_kernel: int = 5,
+                 median_kernel: int = 3,
                  use_clahe: bool = True,
                  clip_limit: float = 2.0,
                  gaussian_kernel: Optional[int] = None,
@@ -36,8 +36,8 @@ class NoiseRobustPreprocessor:
         Initialize preprocessor with configurable parameters.
         
         Args:
-            median_kernel: Kernel size for median filter (must be odd). 
-                          Larger values remove more noise but blur edges.
+            median_kernel: Size of the median filter kernel (must be odd, e.g., 3, 5). 
+                           Reduced to 3 to prevent over-blurring of facial expressions.
             use_clahe: Use CLAHE instead of standard histogram equalization.
                       CLAHE prevents over-amplification of noise in uniform regions.
             clip_limit: Contrast limiting threshold for CLAHE (1-5 typical).

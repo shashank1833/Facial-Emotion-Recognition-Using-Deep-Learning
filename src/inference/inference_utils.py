@@ -65,22 +65,31 @@ class InferenceBase:
         
         # Load model
         print(f"Loading model from {model_path}...")
+        
+        # Default emotions (can be overridden by _load_model)
+        self.emotions = self.config['emotions']['classes']
+        
         self.model = self._load_model(model_path)
         self.model.eval()
         
-        # Emotion labels
-        self.emotions = self.config['emotions']['classes']
-        
-        print("✓ Inference pipeline initialized")
+        print("[OK] Inference pipeline initialized")
     
     def _load_model(self, model_path: str):
         """Load trained model from checkpoint."""
         checkpoint = torch.load(model_path, map_location=self.device)
         
+        # Use config from checkpoint if available, otherwise use default
+        model_config = checkpoint.get('config', self.config)
+        
+        # Update self.emotions and other relevant settings from checkpoint config
+        if 'emotions' in model_config:
+            self.emotions = model_config['emotions']['classes']
+            print(f"Using emotions from checkpoint: {self.emotions}")
+        
         # Create model
         model = create_full_model(
-            hybrid_cnn_config=self.config['model'],
-            lstm_config=self.config['model']['lstm']
+            hybrid_cnn_config=model_config['model'],
+            lstm_config=model_config['model']['lstm']
         )
         
         # Load weights
@@ -89,54 +98,167 @@ class InferenceBase:
         
         return model
     
-    def process_single_frame(self, frame: np.ndarray) -> Optional[Dict]:
+    def process_single_frame(self, frame: np.ndarray, skip_detection: bool = False) -> Optional[Dict]:
         """
         Process single frame and extract features.
-        
-        Args:
-            frame: Input frame (BGR or grayscale)
-            
-        Returns:
-            Dictionary with processed data or None if no face detected
+    
+        If skip_detection=True, assumes FER-style pre-cropped face
+        and skips landmark + zone extraction.
         """
-        # Convert to grayscale if needed
-        if len(frame.shape) == 3:
-            frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
-        else:
-            frame_gray = frame
-        
+    
         # Preprocess
-        processed, _ = self.preprocessor.preprocess(frame_gray)
-        
-        # Detect landmarks
+        # We need to maintain BGR for some operations or consistent scaling
+        # The preprocessor handle to_grayscale internally if needed
+        processed, _ = self.preprocessor.preprocess(frame, to_grayscale=True)
+    
+        # FER-2013 compatibility: Check if image is very small (like training samples)
+        # If so, we must upscale for landmark detection but NOT crop (since it's already a face crop)
+        is_small_sample = frame.shape[0] < 100 or frame.shape[1] < 100
+
+        if not skip_detection and is_small_sample:
+            # Upscale small image for better landmark detection
+            # FER-2013 is 48x48, which is too small for MediaPipe
+            detection_size = 224
+            processed_for_detection = cv2.resize(processed, (detection_size, detection_size))
+            landmarks = self.detector.detect_landmarks(processed_for_detection)
+            
+            if landmarks is not None:
+                # Successfully detected landmarks on upscaled small image
+                # Use the upscaled image for consistency with training (data_loader.py line 167)
+                zones_extracted = self.zone_extractor.extract_all_zones(processed_for_detection, landmarks.landmarks)
+                
+                # Prepare full face (already 224x224)
+                full_face = processed_for_detection
+                
+                # Use normalization based on config
+                face_float = full_face.astype(np.float32)
+                if self.config['zones']['normalization'] == 'minmax':
+                    min_val, max_val = face_float.min(), face_float.max()
+                    face_norm = (face_float - min_val) / (max_val - min_val) if max_val > min_val else face_float / 255.0
+                else:
+                    face_norm = face_float / 255.0
+                
+                full_face_tensor = torch.from_numpy(face_norm).unsqueeze(0).unsqueeze(0).float().to(self.device)
+                
+                zones_tensor = {
+                    name: torch.from_numpy(zone.image).unsqueeze(0).unsqueeze(0).float().to(self.device)
+                    for name, zone in zones_extracted.items()
+                }
+                
+                return {
+                    "full_face": full_face_tensor,
+                    "zones": zones_tensor,
+                    "landmarks": landmarks,
+                    "processed": processed,
+                    "original": frame,
+                }
+
+        if skip_detection:
+            # ===== FER MODE (or fallback) =====
+            # Use full image as face
+            face = processed
+
+            # Resize directly to CNN input
+            full_face = cv2.resize(face, (224, 224))
+            
+            # Use normalization based on config
+            face_float = full_face.astype(np.float32)
+            if self.config['zones']['normalization'] == 'minmax':
+                min_val, max_val = face_float.min(), face_float.max()
+                face_norm = (face_float - min_val) / (max_val - min_val) if max_val > min_val else face_float / 255.0
+            else:
+                face_norm = face_float / 255.0
+
+            full_face_tensor = (
+                torch.from_numpy(face_norm)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float()
+            ).to(self.device)
+
+            # Fallback for zones: Use resized full face (as done in training)
+            zone_size = self.zone_extractor.target_size
+            zone_fallback = cv2.resize(face, (zone_size, zone_size))
+            
+            # Use normalization based on config
+            zone_float = zone_fallback.astype(np.float32)
+            if self.config['zones']['normalization'] == 'minmax':
+                z_min, z_max = zone_float.min(), zone_float.max()
+                zone_norm = (zone_float - z_min) / (z_max - z_min) if z_max > z_min else zone_float / 255.0
+            else:
+                zone_norm = zone_float / 255.0
+
+            zone_fallback_tensor = (
+                torch.from_numpy(zone_norm)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float()
+            ).to(self.device)
+            
+            zones_tensor = {
+                'forehead': zone_fallback_tensor,
+                'left_eye': zone_fallback_tensor,
+                'right_eye': zone_fallback_tensor,
+                'nose': zone_fallback_tensor,
+                'mouth': zone_fallback_tensor
+            }
+
+            return {
+                "full_face": full_face_tensor,
+                "zones": zones_tensor,
+                "landmarks": None,
+                "processed": processed,
+                "original": frame,
+            }
+    
+        # ===== NORMAL MODE (real images / webcam) =====
         landmarks = self.detector.detect_landmarks(processed)
-        
         if landmarks is None:
             return None
-        
+    
         # Extract zones
         zones = self.zone_extractor.extract_all_zones(processed, landmarks.landmarks)
+    
+        # Prepare full face - CROP to face region first!
+        face_region = self.detector.get_face_region(processed, landmarks)
+        full_face = cv2.resize(face_region, (224, 224))
         
-        # Prepare full face
-        full_face = cv2.resize(processed, (224, 224))
-        full_face_tensor = torch.from_numpy(full_face).unsqueeze(0).unsqueeze(0).float() / 255.0
-        full_face_tensor = full_face_tensor.to(self.device)
-        
+        # Use normalization based on config
+        face_float = full_face.astype(np.float32)
+        if self.config['zones']['normalization'] == 'minmax':
+            min_val, max_val = face_float.min(), face_float.max()
+            face_norm = (face_float - min_val) / (max_val - min_val) if max_val > min_val else face_float / 255.0
+        else:
+            face_norm = face_float / 255.0
+
+        full_face_tensor = (
+            torch.from_numpy(face_norm)
+            .unsqueeze(0)
+            .unsqueeze(0)
+            .float()
+        ).to(self.device)
+    
         # Prepare zones
         zones_tensor = {
-            name: torch.from_numpy(zone.image).unsqueeze(0).unsqueeze(0).float() / 255.0
+            name: (
+                torch.from_numpy(zone.image)
+                .unsqueeze(0)
+                .unsqueeze(0)
+                .float()
+                # zone.image is already normalized to [0, 1] by zone_extractor
+            ).to(self.device)
             for name, zone in zones.items()
         }
-        zones_tensor = {k: v.to(self.device) for k, v in zones_tensor.items()}
-        
-        return {
-            'full_face': full_face_tensor,
-            'zones': zones_tensor,
-            'landmarks': landmarks,
-            'processed': processed,
-            'original': frame
-        }
     
+        return {
+            "full_face": full_face_tensor,
+            "zones": zones_tensor,
+            "landmarks": landmarks,
+            "processed": processed,
+            "original": frame,
+        }
+
+
     def predict_cnn_only(self, frame_data: Dict) -> Tuple[str, float, np.ndarray]:
         """
         Predict emotion using CNN only (no temporal LSTM).
@@ -154,10 +276,12 @@ class InferenceBase:
                 frame_data['zones']
             )
             
-            # Get the classifier from LSTM module
-            # The LSTM module contains: lstm -> dropout -> fc
-            # For single frame, we skip LSTM and use just the classifier
-            logits = self.model.temporal_lstm.fc(features)
+            # Add sequence dimension (batch=1, seq_len=1, feature_dim)
+            # This allows passing a single frame through the LSTM-based architecture
+            features = features.unsqueeze(1)
+            
+            # Pass through temporal model (LSTM + Classifier)
+            logits = self.model.temporal_lstm(features)
             
             probabilities = torch.softmax(logits, dim=1)
             confidence, predicted = probabilities.max(1)
@@ -166,6 +290,9 @@ class InferenceBase:
             emotion_label = self.emotions[emotion_idx]
             confidence_val = confidence.item()
             probs = probabilities[0].cpu().numpy()
+            
+            # Debug log
+            print(f"DEBUG: CNN Prediction index: {emotion_idx} ({emotion_label}), Confidence: {confidence_val:.4f}", file=sys.stderr)
         
         return emotion_label, confidence_val, probs
     
@@ -351,7 +478,7 @@ def save_prediction_report(output_path: str,
         predictions: Dictionary with prediction results
         source_info: Dictionary with source information
     """
-    with open(output_path, 'w') as f:
+    with open(output_path, 'w', encoding='utf-8') as f:
         f.write("=" * 60 + "\n")
         f.write("EMOTION RECOGNITION REPORT\n")
         f.write("=" * 60 + "\n\n")

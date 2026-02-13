@@ -7,3 +7,16 @@ data/
 .env
 .idea/
 .vscode/
+
+# Node dependencies
+node_modules/
+dist/
+.DS_Store
+
+# Large files
+*.pth
+*.pt
+*.csv
+*.mp4
+*.avi
+

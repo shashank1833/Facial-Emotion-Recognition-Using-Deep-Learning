@@ -16,7 +16,7 @@ Academic Justification:
 
 import cv2
 import numpy as np
-import mediapipe as mp
+import mediapipe.python.solutions as mp_solutions
 from typing import Optional, List, Tuple, Dict
 from dataclasses import dataclass
 
@@ -63,9 +63,9 @@ class MediaPipeFaceDetector:
             min_tracking_confidence: Confidence threshold for landmark tracking.
             refine_landmarks: Include iris landmarks (478 total points).
         """
-        self.mp_face_mesh = mp.solutions.face_mesh
-        self.mp_drawing = mp.solutions.drawing_utils
-        self.mp_drawing_styles = mp.solutions.drawing_styles
+        self.mp_face_mesh = mp_solutions.face_mesh
+        self.mp_drawing = mp_solutions.drawing_utils
+        self.mp_drawing_styles = mp_solutions.drawing_styles
         
         self.face_mesh = self.mp_face_mesh.FaceMesh(
             static_image_mode=static_image_mode,

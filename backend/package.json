@@ -1,0 +1,26 @@
+{
+  "name": "emotion_recognition",
+  "version": "1.0.0",
+  "description": "This system extends the baseline CNN+LSTM emotion recognition repository with a **hybrid zone-based architecture** that achieves state-of-the-art performance through:",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning/issues"
+  },
+  "homepage": "https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning#readme",
+  "dependencies": {
+    "body-parser": "^2.2.2",
+    "cors": "^2.8.6",
+    "express": "^5.2.1"
+  }
+}

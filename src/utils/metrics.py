@@ -53,9 +53,9 @@ def calculate_metrics(y_true: np.ndarray,
     metrics['f1_weighted'] = f1_score(y_true, y_pred, average='weighted', zero_division=0)
     
     # Per-class metrics
-    precision_per_class = precision_score(y_true, y_pred, average=None, zero_division=0)
-    recall_per_class = recall_score(y_true, y_pred, average=None, zero_division=0)
-    f1_per_class = f1_score(y_true, y_pred, average=None, zero_division=0)
+    precision_per_class = precision_score(y_true, y_pred, average=None, zero_division=0, labels=range(len(class_names)))
+    recall_per_class = recall_score(y_true, y_pred, average=None, zero_division=0, labels=range(len(class_names)))
+    f1_per_class = f1_score(y_true, y_pred, average=None, zero_division=0, labels=range(len(class_names)))
     
     metrics['per_class'] = {}
     for i, class_name in enumerate(class_names):
@@ -144,7 +144,12 @@ def evaluate_model(model: nn.Module,
             
             # Forward pass
             features = model.hybrid_cnn(full_faces, zones_device)
-            logits = model.temporal_lstm.classifier(features)
+            
+            # Add sequence dimension (batch, 1, feature_dim)
+            features = features.unsqueeze(1)
+            
+            # Pass through LSTM (includes classifier)
+            logits = model.temporal_lstm(features)
             
             # Get predictions
             probs = torch.softmax(logits, dim=1)

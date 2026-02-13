@@ -3,7 +3,6 @@
 # Data paths
 data:
   fer2013_path: "data/fer2013/fer2013.csv"
-  affectnet_path: "data/affectnet/"
   checkpoint_dir: "checkpoints/"
   logs_dir: "logs/"
 
@@ -17,7 +16,7 @@ preprocessing:
   grayscale: true
   median_filter:
     enabled: true
-    kernel_size: 5
+    kernel_size: 3
   histogram_equalization:
     enabled: true
     clip_limit: 2.0  # for CLAHE (Contrast Limited Adaptive HE)
@@ -77,7 +76,7 @@ model:
 # Training
 training:
   batch_size: 32
-  epochs: 50
+  epochs: 30
   learning_rate: 0.0001
   optimizer: "adam"
   loss: "categorical_crossentropy"
