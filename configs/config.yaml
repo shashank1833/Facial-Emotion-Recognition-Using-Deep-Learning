@@ -1,0 +1,79 @@
+# Configuration for Modern Facial Emotion Recognition System (Refactored)
+
+# Data paths
+data:
+  raf_db_path: "data/raf-db/"  # Primary dataset for training
+  fer2013_path: "data/fer2013/fer2013.csv"  # Only for cross-dataset testing
+  checkpoint_dir: "checkpoints/"
+  logs_dir: "logs/"
+  seed: 42
+
+# Emotion labels (RAF-DB standard 7 classes)
+emotions:
+  classes: ["Surprise", "Fear", "Disgust", "Happiness", "Sadness", "Anger", "Neutral"]
+  num_classes: 7
+
+# Model architecture
+model:
+  backbone: "efficientnet_b0"  # Options: efficientnet_b0, mobilenet_v3_large
+  pretrained: true
+  input_size: 224
+  dropout: 0.4
+
+# Training
+training:
+  batch_size: 48
+  epochs: 10
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  optimizer: "adamw"
+  loss: "focal_loss"
+  focal_loss:
+    alpha: 0.25
+    gamma: 2.0
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    min_delta: 0.001
+  
+  lr_schedule:
+    enabled: true
+    type: "cosine"  # Options: cosine, step, plateau
+    patience: 5
+    min_lr: 1e-7
+
+  augmentation:
+    enabled: true
+    rotation: 15
+    translate: [0.1, 0.1]
+    scale: [0.9, 1.1]
+    horizontal_flip: true
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+      saturation: 0.2
+      hue: 0.1
+
+# Inference
+inference:
+  mode: "webcam"
+  input_size: 224
+  smoothing_window: 5
+  display:
+    show_fps: true
+    show_probabilities: true
+    show_box: true
+  confidence_threshold: 0.4
+
+# Hardware
+hardware:
+  device: "cuda"
+  num_workers: 4
+  pin_memory: true
+
+# Logging
+logging:
+  tensorboard: true
+  save_frequency: 1
+  verbose: true

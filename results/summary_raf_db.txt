@@ -1,0 +1,16 @@
+Evaluation Summary - RAF_DB
+========================================
+Accuracy: 0.7875
+Macro F1: 0.7113
+Macro Precision: 0.7002
+Macro Recall: 0.7283
+
+Per-Class Metrics:
+Class           Precision  Recall     F1        
+Surprise        0.7507    0.8602    0.8017
+Fear            0.6119    0.5541    0.5816
+Disgust         0.4335    0.5500    0.4848
+Happiness       0.9591    0.8321    0.8911
+Sadness         0.7515    0.7782    0.7646
+Anger           0.6595    0.7531    0.7032
+Neutral         0.7349    0.7706    0.7523
