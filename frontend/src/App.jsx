@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useState, useRef, useEffect, useCallback } from 'react';
 import axios from 'axios';
 import { 
   Upload, 
@@ -38,6 +38,7 @@ function App() {
   const canvasRef = useRef(null);
   const liveCanvasRef = useRef(null);
   const liveIntervalRef = useRef(null);
+  const isLiveRef = useRef(false);
 
   // Check backend health
   useEffect(() => {
@@ -47,7 +48,7 @@ function App() {
         if (response.data.status === 'healthy') {
           setBackendStatus('ready');
         }
-      } catch (err) {
+      } catch {
         setBackendStatus('error');
       }
     };
@@ -107,9 +108,25 @@ function App() {
     return canvas.toDataURL('image/jpeg');
   };
 
-  const startLiveDetection = async () => {
+  const stopLiveDetection = useCallback(() => {
+    setIsLive(false);
+    isLiveRef.current = false;
+    if (liveIntervalRef.current) {
+      clearInterval(liveIntervalRef.current);
+      liveIntervalRef.current = null;
+    }
+    if (liveVideoRef.current && liveVideoRef.current.srcObject) {
+      const tracks = liveVideoRef.current.srcObject.getTracks();
+      tracks.forEach(track => track.stop());
+      liveVideoRef.current.srcObject = null;
+    }
+    setLiveResult(null);
+  }, []);
+
+  const startLiveDetection = useCallback(async () => {
     try {
       setLiveError(null);
+      stopLiveDetection();
       const stream = await navigator.mediaDevices.getUserMedia({ 
         video: { width: 1280, height: 720, facingMode: 'user' } 
       });
@@ -117,12 +134,13 @@ function App() {
       if (liveVideoRef.current) {
         liveVideoRef.current.srcObject = stream;
         setIsLive(true);
+        isLiveRef.current = true;
       }
     } catch (err) {
       console.error('Failed to start camera:', err);
       setLiveError('Camera access denied or not available.');
     }
-  };
+  }, [stopLiveDetection, liveVideoRef]);
 
   const manualAnalyzeLive = async () => {
     if (!liveVideoRef.current || !liveCanvasRef.current || backendStatus !== 'ready' || isLiveAnalyzing) return;
@@ -165,26 +183,46 @@ function App() {
     }
   };
 
-  const stopLiveDetection = () => {
-    setIsLive(false);
-    if (liveIntervalRef.current) {
-      clearInterval(liveIntervalRef.current);
-      liveIntervalRef.current = null;
-    }
-    if (liveVideoRef.current && liveVideoRef.current.srcObject) {
-      const tracks = liveVideoRef.current.srcObject.getTracks();
-      tracks.forEach(track => track.stop());
-      liveVideoRef.current.srcObject = null;
-    }
-    setLiveResult(null);
-  };
+  
+
+  useEffect(() => {
+    isLiveRef.current = isLive;
+  }, [isLive]);
 
   useEffect(() => {
     // Stop live detection when switching tabs
     if (activeTab !== 'live' && isLive) {
       stopLiveDetection();
     }
-  }, [activeTab]);
+  }, [activeTab, isLive, stopLiveDetection]);
+
+  useEffect(() => {
+  }, [activeTab, isLive, startLiveDetection]);
+
+  useEffect(() => {
+    const handleVisibility = () => {
+      if (document.hidden && isLive) {
+        stopLiveDetection();
+      }
+    };
+    document.addEventListener('visibilitychange', handleVisibility);
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibility);
+      if (isLive) stopLiveDetection();
+    };
+  }, [isLive, stopLiveDetection]);
+
+  useEffect(() => {
+    const handler = () => {
+      if (isLiveRef.current) stopLiveDetection();
+    };
+    window.addEventListener('pagehide', handler);
+    window.addEventListener('beforeunload', handler);
+    return () => {
+      window.removeEventListener('pagehide', handler);
+      window.removeEventListener('beforeunload', handler);
+    };
+  }, [stopLiveDetection]);
 
   const runAnalysis = async () => {
     if (!selectedFile) return;
@@ -529,7 +567,7 @@ function App() {
                   <div className="glass-card-3d rounded-[2rem] lg:rounded-[2.5rem] p-6 lg:p-8 space-y-6 lg:space-y-8">
                     <h3 className="text-[10px] font-black text-indigo-400 uppercase tracking-[0.2em]">Processing Pipeline</h3>
                     <div className="space-y-4 lg:space-y-5">
-                      {steps.map((step, idx) => {
+                      {steps.map((step) => {
                         const isCompleted = analysisSteps.includes(step.id);
                         const isCurrent = isAnalyzing && analysisSteps[analysisSteps.length - 1] === step.id;
                         
@@ -678,7 +716,6 @@ function App() {
                 <div className="space-y-6 max-w-3xl mx-auto">
                   {['HAPPY', 'SAD', 'ANGRY', 'SURPRISED', 'NEUTRAL'].map(emotion => {
                     const count = history.filter(h => h.emotion === emotion).length;
-                    const percentage = history.length > 0 ? (count / history.length) * 100 : 0;
                     
                     return (
                       <div key={emotion} className="space-y-2">
