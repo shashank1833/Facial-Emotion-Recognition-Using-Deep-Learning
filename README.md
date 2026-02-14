@@ -7,9 +7,9 @@
 ![Node.js](https://img.shields.io/badge/node-20.19+-green.svg)
 ![React](https://img.shields.io/badge/react-19.2-blue.svg)
 
-**A production-grade facial emotion recognition system powered by hybrid CNN-LSTM neural networks**
+**A facial emotion recognition system using transfer learning and deep neural networks**
 
-[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [API](#-api)
+[Features](#-features) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [API](#-api)
 
 </div>
 
@@ -25,6 +25,7 @@
 - [Configuration](#️-configuration)
 - [Usage](#-usage)
 - [API Documentation](#-api-documentation)
+- [Model Performance](#-model-performance)
 - [Project Structure](#-project-structure)
 - [Technology Stack](#-technology-stack)
 - [Troubleshooting](#-troubleshooting)
@@ -35,37 +36,37 @@
 
 ## 🎯 Overview
 
-Aura AI is an advanced facial emotion recognition system that combines state-of-the-art deep learning techniques with a modern web interface. The system analyzes human emotions in real-time using a hybrid CNN-LSTM architecture that captures both spatial facial features and temporal emotion transitions.
+Aura AI is an image-based facial emotion recognition system that uses **transfer learning** with an EfficientNet-B0 backbone fine-tuned on facial expression datasets. It performs per-frame inference in real time.
 
 ### Key Capabilities
 
 - **Real-time Analysis**: Process emotions from live webcam feeds with minimal latency
 - **Multi-format Support**: Analyze static images (JPG/PNG) and video files (MP4/MOV)
-- **High Accuracy**: Hybrid zone-based CNN architecture for precise emotion detection
-- **Production Ready**: RESTful API with queue-based processing and error handling
-- **Modern UI**: Beautiful, responsive React interface with 3D visual effects
+- **RAF-DB**: Accuracy 78.75%; Macro F1 71.13%
+- **Transfer Learning**: Leverages ImageNet pretrained models for robust feature extraction
+- **REST API**: Sequential request handling with error management
+- **UI**: Responsive React interface
 
 ---
 
 ## ✨ Features
 
 ### 🎭 **Emotion Recognition**
-- Detects 7 emotions: **Angry**, **Disgust**, **Fear**, **Happy**, **Sad**, **Surprise**, **Neutral**
-- Real-time confidence scores and probability distributions
-- Temporal analysis for video sequences
+- Detects 7 emotions: **Surprise**, **Fear**, **Disgust**, **Happiness**, **Sadness**, **Anger**, **Neutral**
+- Per-frame probabilities with confidence scores
 
 ### 🖼️ **Input Modes**
 - **Image Upload**: Drag-and-drop or file picker for static images
 - **Video Analysis**: Process video files frame-by-frame
-- **Live Detection**: Real-time webcam emotion streaming
+- **Live Detection**: Real-time webcam, frame-by-frame inference
 
 ### 🔬 **Advanced Processing**
-- **Noise-Robust Preprocessing**: Median filtering and CLAHE normalization
-- **Landmark Detection**: MediaPipe Face Mesh (468 facial landmarks)
-- **Zone-Based Analysis**: Separate processing of eyes, mouth, forehead, and nose regions
-- **Temporal Modeling**: LSTM layers capture emotion transitions
+- **Preprocessing**: Resize to 224×224 and ImageNet normalization
+- **Transfer Learning**: EfficientNet-B0 backbone pretrained on ImageNet
+- **Data Augmentation**: Rotation, flip, color jitter, affine transforms for training robustness
+- **Focal Loss**: Addresses class imbalance in emotion datasets
 
-### 📊 **Analytics Dashboard**
+### 📊 **Analytics (Client-Side)**
 - Historical analysis records with timestamps
 - Emotion distribution statistics
 - Performance metrics and data point tracking
@@ -76,6 +77,10 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
 ## 🏗️ System Architecture
 
 ```
+┌─────────────────────────────────────────────────────────────┐
+│                  AURA AI ARCHITECTURE                        │
+└─────────────────────────────────────────────────────────────┘
+
 ┌─────────────┐      ┌──────────────┐      ┌────────────────┐
 │   React     │─────▶│   Node.js    │─────▶│    Python      │
 │  Frontend   │      │   Backend    │      │   Inference    │
@@ -85,10 +90,10 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
      │                      │                       │
   UI Layer            API Gateway            ML Processing
      │                      │                       │
-     ├─ Image Upload        ├─ Request Queue        ├─ MediaPipe
-     ├─ Webcam Capture      ├─ JSON Response        ├─ Zone CNNs
-     ├─ Results Display     ├─ Error Handling       ├─ LSTM
-     └─ Analytics           └─ Health Check         └─ Classifier
+     ├─ Image Upload        ├─ Request Queue        ├─ Preprocessing
+     ├─ Webcam Capture      ├─ JSON Response        ├─ EfficientNet-B0
+     ├─ Results Display     ├─ Error Handling       ├─ Classifier
+     └─ Analytics           └─ Health Check         └─ Softmax
 ```
 
 ### Processing Pipeline
@@ -97,12 +102,12 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
 2. **Frontend** → Captures frame and converts to base64
 3. **Node.js Backend** → Queues request and spawns Python bridge
 4. **Python Inference** → 
-   - Face detection (MediaPipe)
-   - Landmark extraction (468 points)
-   - Zone segmentation (5 regions)
-   - Feature extraction (Global + Zone CNNs)
-   - Temporal analysis (LSTM)
-   - Classification (7 emotions)
+   - Convert BGR → RGB
+   - Resize to 224×224
+   - Normalize (ImageNet mean/std)
+   - Feature extraction (EfficientNet-B0 backbone)
+   - Classification (custom head with dropout)
+   - Softmax probabilities
 5. **Response** → JSON with emotion, confidence, probabilities
 6. **Frontend** → Displays results with visualizations
 
@@ -154,21 +159,18 @@ source venv/bin/activate
 ```bash
 # Install all required Python packages
 pip install -r requirements.txt
-
-# If you get permission errors without virtual environment, use:
-# pip install -r requirements.txt --break-system-packages
 ```
 
 **Key Dependencies:**
 - **PyTorch** (≥2.0.0): Deep learning framework
+- **Torchvision** (≥0.15.0): Pretrained models and transforms
 - **OpenCV** (≥4.8.0): Image processing
-- **MediaPipe** (≥0.10.0): Face landmark detection
 - **NumPy, Pandas**: Data processing
-- **Albumentations, imgaug**: Data augmentation
+- **Albumentations**: Data augmentation
 - **TensorBoard**: Training visualization
 - **PyYAML**: Configuration management
 
-> **Note**: Using a virtual environment (recommended above) avoids the need for `--break-system-packages` flag.
+> **Note**: Using a virtual environment is strongly recommended to avoid dependency conflicts.
 
 #### Optional: GPU Support
 
@@ -180,17 +182,6 @@ pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
 
 # Verify GPU availability
 python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
-```
-
-#### Optional: Alternative Face Detection
-
-To use dlib instead of MediaPipe, uncomment the dlib line in `requirements.txt`:
-
-```bash
-# Uncomment in requirements.txt:
-# dlib>=19.24.0
-
-pip install dlib
 ```
 
 #### Install Node.js Dependencies
@@ -225,9 +216,11 @@ npm install
 # Create checkpoints directory
 mkdir -p checkpoints
 
-# Download model (replace with your actual model URL)
+# Download model (replace with your actual model URL or train your own)
 # Place your trained model file as: checkpoints/best_model.pth
 ```
+
+> **Note**: You need to train the model first or obtain a pretrained checkpoint. See [Training](#training-your-own-model) section.
 
 ---
 
@@ -238,30 +231,33 @@ mkdir -p checkpoints
 ```yaml
 # Emotion labels
 emotions:
-  classes: ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
+  classes: ["Surprise", "Fear", "Disgust", "Happiness", "Sadness", "Anger", "Neutral"]
   num_classes: 7
-
-# Face detection
-face_detection:
-  method: "mediapipe"
-  mediapipe:
-    static_image_mode: false
-    max_num_faces: 1
-    min_detection_confidence: 0.5
 
 # Model architecture
 model:
-  global_cnn:
-    input_size: 224
-    feature_dim: 512
-  
-  zone_cnn:
-    input_size: 48
-    feature_dim: 128
+  backbone: "efficientnet_b0"  # Options: efficientnet_b0, mobilenet_v3_large
+  pretrained: true
+  input_size: 224
+  dropout: 0.4
+
+# Training
+training:
+  batch_size: 48
+  epochs: 10
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  optimizer: "adamw"
+  loss: "focal_loss"
+  focal_loss:
+    alpha: 0.25
+    gamma: 2.0
 
 # Hardware
 hardware:
   device: "cuda"  # Set to "cpu" if no GPU available
+  num_workers: 4
+  pin_memory: true
 ```
 
 ### Backend Configuration
@@ -307,21 +303,26 @@ npm run dev
 cd frontend
 npm run build
 
-# Serve with backend
+# Preview production build (static server)
+npm run preview
+# Preview runs on http://localhost:4173 by default
+
+# In a separate terminal, run backend API
 cd ../backend
-node server.js
-# Frontend will be served at http://localhost:5000
+node server.js  # API at http://localhost:5000
 ```
 
 ### Access the Application
 
 Open your browser and navigate to:
 - **Development**: `http://localhost:5173`
-- **Production**: `http://localhost:5000`
+- **Preview build**: `http://localhost:4173` (frontend), **Backend API**: `http://localhost:5000`
 
 ### Using the Interface
 
 #### 📸 **Image/Video Analysis**
+
+> Video and webcam inputs are processed frame-by-frame using the same image-based model; no temporal sequence modeling is performed.
 
 1. Click on the **"Analyze"** tab
 2. Drag and drop an image/video or click to upload
@@ -333,8 +334,9 @@ Open your browser and navigate to:
 1. Click on the **"Live Detection"** tab
 2. Click **"INITIALIZE CAMERA"**
 3. Allow browser camera access
-4. Click **"ANALYZE EMOTION"** to capture and analyze
+4. Click **"ANALYZE EMOTION"** to capture and analyze. Inference captures the current frame and processes it as a single image.
 5. Click **"TERMINATE SESSION"** to stop
+6. Camera runs only during Live Detection and stops when leaving the tab
 
 #### 📊 **View Analytics**
 
@@ -385,15 +387,15 @@ Content-Type: application/json
 **Success Response (200):**
 ```json
 {
-  "emotion": "Happy",
+  "emotion": "Happiness",
   "confidence": 0.8542,
   "probabilities": {
-    "Angry": 0.0234,
-    "Disgust": 0.0123,
+    "Surprise": 0.0234,
     "Fear": 0.0187,
-    "Happy": 0.8542,
-    "Sad": 0.0156,
-    "Surprise": 0.0421,
+    "Disgust": 0.0123,
+    "Happiness": 0.8542,
+    "Sadness": 0.0156,
+    "Anger": 0.0421,
     "Neutral": 0.0337
   },
   "detection_success": true
@@ -419,6 +421,41 @@ Content-Type: application/json
 - **Queue System**: Requests are processed sequentially
 - **Timeout**: 30 seconds per request
 - **Rate Limiting**: None (implement for production)
+
+---
+
+## 📊 Model Performance
+
+### RAF-DB Test Set (In-Domain)
+
+| Metric | Value |
+|--------|-------|
+| **Macro F1-Score** | 71.13% |
+| **Accuracy** | 78.75% |
+| **Macro Recall** | 72.83% |
+| **Macro Precision** | 70.02% |
+
+#### Per-Class Performance
+
+| Emotion | Precision | Recall | F1-Score |
+|---------|-----------|--------|----------|
+| Surprise | 75.07% | 86.02% | 80.17% |
+| Fear | 61.19% | 55.41% | 58.16% |
+| Disgust | 43.35% | 55.00% | 48.48% |
+| **Happiness** | **95.91%** | **83.21%** | **89.11%** |
+| Sadness | 75.15% | 77.82% | 76.46% |
+| Anger | 65.95% | 75.31% | 70.32% |
+| Neutral | 73.49% | 77.06% | 75.23% |
+
+### FER-2013 Test Set (Cross-Domain)
+
+| Metric | Value |
+|--------|-------|
+| **Accuracy** | 47.73% |
+| **Macro F1-Score** | 40.05% |
+
+> **Note**: Lower performance on FER-2013 is expected due to significant domain shift (grayscale, 48×48, in-the-wild conditions vs. RAF-DB's color, high-resolution, controlled images). These results reflect cross-dataset generalization, not training-time optimization.
+> FER-2013 is used strictly for cross-dataset evaluation with no fine-tuning performed.
 
 ---
 
@@ -448,11 +485,27 @@ emotion_recognition/
 │   └── eslint.config.js              # ESLint configuration
 │
 ├── src/                              # Python ML Code
+│   ├── models/
+│   │   └── emotion_model.py          # EfficientNet/MobileNet model definition
+│   │
+│   ├── preprocessing/
+│   │   └── noise_robust.py           # Preprocessing transforms (resize, normalization)
+│   │
+│   ├── training/
+│   │   ├── train.py                  # Training script
+│   │   ├── evaluate.py               # Evaluation script
+│   │   ├── data_loader.py            # Dataset loaders (RAF-DB, FER-2013)
+│   │   ├── losses.py                 # Focal Loss implementation
+│   │   └── augmentation.py           # Data augmentation
+│   │
 │   ├── inference/
-│   │   └── inference_utils.py        # Base inference class
-│   ├── models/                       # CNN & LSTM architectures
-│   ├── preprocessing/                # Image preprocessing
-│   └── utils/                        # Helper functions
+│   │   ├── inference_utils.py        # Shared inference utilities
+│   │   ├── image_inference.py        # Single image inference
+│   │   └── realtime_demo.py          # Webcam real-time demo
+│   │
+│   └── utils/
+│       ├── metrics.py                # Evaluation metrics
+│       └── visualization.py          # Plotting utilities
 │
 ├── configs/
 │   └── config.yaml                   # System configuration
@@ -460,8 +513,11 @@ emotion_recognition/
 ├── checkpoints/                      # Trained model weights
 │   └── best_model.pth
 │
-├── data/                             # Datasets (not included)
-│   └── fer2013/
+├── results/                          # Evaluation results
+│   ├── metrics_raf_db.json
+│   ├── metrics_fer2013.json
+│   ├── confusion_matrix_raf_db.png
+│   └── summary_raf_db.txt
 │
 ├── requirements.txt                  # Python dependencies
 ├── README.md                         # This file
@@ -498,17 +554,82 @@ emotion_recognition/
 |------------|---------|---------|
 | Python | 3.8+ | ML runtime |
 | PyTorch | ≥2.0.0 | Deep learning framework |
-| Torchvision | ≥0.15.0 | Vision utilities |
+| Torchvision | ≥0.15.0 | Pretrained models |
+| EfficientNet | B0 | Backbone architecture |
 | OpenCV | ≥4.8.0 | Image processing |
-| MediaPipe | ≥0.10.0 | Face landmark detection |
 | NumPy | ≥1.24.0 | Numerical computing |
 | Pandas | ≥2.0.0 | Data manipulation |
-| Scikit-learn | ≥1.3.0 | ML utilities |
+| Scikit-learn | ≥1.3.0 | Metrics |
 | Albumentations | ≥1.3.0 | Data augmentation |
 | TensorBoard | ≥2.13.0 | Training visualization |
 | PyYAML | ≥6.0 | Configuration parsing |
-| Matplotlib | ≥3.7.0 | Plotting |
-| Seaborn | ≥0.12.0 | Statistical visualization |
+
+---
+
+## 🎓 Training Your Own Model
+
+### Prepare Dataset
+
+**RAF-DB Dataset Structure:**
+```
+data/raf-db/
+├── DATASET/
+│   ├── train/
+│   │   ├── 1/  # Surprise
+│   │   ├── 2/  # Fear
+│   │   ├── 3/  # Disgust
+│   │   ├── 4/  # Happiness
+│   │   ├── 5/  # Sadness
+│   │   ├── 6/  # Anger
+│   │   └── 7/  # Neutral
+│   └── test/
+│       └── (same structure)
+```
+
+### Start Training
+
+```bash
+# Basic training
+python src/training/train.py --config configs/config.yaml
+
+# Monitor with TensorBoard
+tensorboard --logdir logs/
+```
+
+### Evaluate Model
+
+```bash
+# Evaluate on RAF-DB and FER-2013
+python src/training/evaluate.py \
+  --model checkpoints/best_model.pth \
+  --config configs/config.yaml \
+  --results_dir results/
+```
+
+### Training Configuration
+
+Key hyperparameters in `configs/config.yaml`:
+
+```yaml
+training:
+  batch_size: 48
+  epochs: 10
+  learning_rate: 0.0001
+  weight_decay: 0.01
+  loss: "focal_loss"  # Handles class imbalance
+  
+  early_stopping:
+    enabled: true
+    patience: 10
+    
+  augmentation:
+    enabled: true
+    rotation: 15
+    horizontal_flip: true
+    color_jitter:
+      brightness: 0.2
+      contrast: 0.2
+```
 
 ---
 
@@ -537,8 +658,11 @@ kill -9 <PID>
 
 **Solution:**
 ```bash
+# Ensure you're in virtual environment
+source venv/bin/activate
+
 # Reinstall PyTorch
-pip install torch torchvision --break-system-packages
+pip install torch torchvision
 ```
 
 #### 3. **Model not found**
@@ -550,7 +674,7 @@ pip install torch torchvision --break-system-packages
 # Ensure model exists
 ls -la checkpoints/best_model.pth
 
-# Check path in inference_bridge.py
+# Train a new model or download pretrained
 ```
 
 #### 4. **Camera access denied**
@@ -569,6 +693,14 @@ ls -la checkpoints/best_model.pth
 **Solution:**
 - Verify CORS is enabled in `backend/server.js`
 - Check API_BASE_URL in frontend matches backend URL
+
+#### 6. **Low accuracy on custom images**
+
+**Solution:**
+- Ensure good lighting conditions
+- Face should be clearly visible and frontal
+- Image resolution should be reasonable (not too small)
+- Model was trained on RAF-DB (relatively clean, frontal faces)
 
 ### Debug Mode
 
@@ -610,9 +742,10 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **MediaPipe**: Face landmark detection
+- **EfficientNet**: Google Research - Efficient deep learning architecture
+- **RAF-DB**: Real-world Affective Faces Database
+- **FER-2013**: Facial Expression Recognition 2013 dataset
 - **PyTorch**: Deep learning framework
-- **FER-2013 Dataset**: Training data
 - **React**: Frontend framework
 - **Tailwind CSS**: UI styling
 
@@ -624,3 +757,9 @@ For questions or support:
 
 - **GitHub Issues**: [Create an issue](https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning/issues)
 - **Email**: shashankreddyremidi@gmail.com
+
+---
+
+## 🔗 Quick Links
+
+- [Model Architecture Details](ARCHITECTURE.md)
