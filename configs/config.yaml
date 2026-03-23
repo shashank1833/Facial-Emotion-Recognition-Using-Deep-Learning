@@ -55,6 +55,7 @@ model:
     kernel_size: 3
     feature_dim: 512
     dropout: 0.5
+    pretrained: true  # Use pretrained EfficientNet-B0 weights
   
   zone_cnn:
     input_size: 48

@@ -22,6 +22,7 @@ Architecture Design:
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+from torchvision import models
 from typing import Dict, Tuple, List, Optional
 
 
@@ -62,42 +63,55 @@ class ConvBlock(nn.Module):
 
 class GlobalCNN(nn.Module):
     """
-    Global CNN for processing full face image.
+    Global CNN for processing full face image using EfficientNet-B0 backbone.
     
     Input: (batch, 1, 224, 224) - grayscale face
     Output: (batch, 512) - global feature vector
     
     Architecture:
-    Conv1: 1  → 64  (224 → 112)
-    Conv2: 64 → 128 (112 → 56)
-    Conv3: 128 → 256 (56 → 28)
-    Conv4: 256 → 512 (28 → 14)
-    FC: 512*14*14 → 512
+    - Pretrained EfficientNet-B0
+    - Modified first layer to accept 1 channel (grayscale)
+    - Custom FC layer to match feature_dim (512)
     """
     
     def __init__(self,
                  input_channels: int = 1,
                  feature_dim: int = 512,
-                 dropout: float = 0.5):
+                 dropout: float = 0.5,
+                 pretrained: bool = True):
         super(GlobalCNN, self).__init__()
         
         self.feature_dim = feature_dim
         
-        # Convolutional layers
-        self.conv1 = ConvBlock(input_channels, 64, kernel_size=3, padding=1)
-        self.conv2 = ConvBlock(64, 128, kernel_size=3, padding=1)
-        self.conv3 = ConvBlock(128, 256, kernel_size=3, padding=1)
-        self.conv4 = ConvBlock(256, 512, kernel_size=3, padding=1)
+        # Load EfficientNet-B0
+        if pretrained:
+            try:
+                self.backbone = models.efficientnet_b0(weights=models.EfficientNet_B0_Weights.DEFAULT)
+            except AttributeError:
+                self.backbone = models.efficientnet_b0(pretrained=True)
+        else:
+            self.backbone = models.efficientnet_b0(weights=None)
+            
+        # Modify first layer if input is grayscale (1 channel)
+        if input_channels != 3:
+            original_conv = self.backbone.features[0][0]
+            self.backbone.features[0][0] = nn.Conv2d(
+                input_channels, 
+                original_conv.out_channels, 
+                kernel_size=original_conv.kernel_size, 
+                stride=original_conv.stride, 
+                padding=original_conv.padding, 
+                bias=False
+            )
+            
+        # Get output dimension of EfficientNet-B0 backbone (1280)
+        num_features = self.backbone.classifier[1].in_features
         
-        # Calculate flattened size after convolutions
-        # 224 → 112 → 56 → 28 → 14
-        self.flat_size = 512 * 14 * 14
-        
-        # Fully connected layers
-        self.fc = nn.Sequential(
-            nn.Linear(self.flat_size, feature_dim),
-            nn.ReLU(inplace=True),
-            nn.Dropout(dropout)
+        # Replace the classifier with our custom FC layer
+        self.backbone.classifier = nn.Sequential(
+            nn.Dropout(p=dropout, inplace=True),
+            nn.Linear(num_features, feature_dim),
+            nn.ReLU(inplace=True)
         )
     
     def forward(self, x: torch.Tensor) -> torch.Tensor:
@@ -110,31 +124,16 @@ class GlobalCNN(nn.Module):
         Returns:
             Feature vector (batch, feature_dim)
         """
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        
-        # Flatten
-        x = x.view(x.size(0), -1)
-        
-        # Fully connected
-        x = self.fc(x)
-        
-        return x
+        return self.backbone(x)
     
     def get_feature_map(self, x: torch.Tensor) -> torch.Tensor:
         """
-        Get feature map before flattening (for visualization).
+        Get feature map before pooling/flattening.
         
         Returns:
-            Feature map (batch, 512, 14, 14)
+            Feature map (batch, 1280, 7, 7)
         """
-        x = self.conv1(x)
-        x = self.conv2(x)
-        x = self.conv3(x)
-        x = self.conv4(x)
-        return x
+        return self.backbone.features(x)
 
 
 class ZoneCNN(nn.Module):
@@ -224,14 +223,16 @@ class HybridCNN(nn.Module):
                  global_feature_dim: int = 512,
                  zone_feature_dim: int = 128,
                  global_dropout: float = 0.5,
-                 zone_dropout: float = 0.3):
+                 zone_dropout: float = 0.3,
+                 pretrained: bool = True):
         super(HybridCNN, self).__init__()
         
         # Global CNN
         self.global_cnn = GlobalCNN(
             input_channels=1,
             feature_dim=global_feature_dim,
-            dropout=global_dropout
+            dropout=global_dropout,
+            pretrained=pretrained
         )
         
         # Zone CNNs (5 separate networks)
@@ -363,6 +364,7 @@ def create_hybrid_cnn(config: Optional[Dict] = None) -> HybridCNN:
                 - zone_feature_dim (default: 128)
                 - global_dropout (default: 0.5)
                 - zone_dropout (default: 0.3)
+                - pretrained (default: True)
     
     Returns:
         Initialized HybridCNN model
@@ -374,7 +376,8 @@ def create_hybrid_cnn(config: Optional[Dict] = None) -> HybridCNN:
         global_feature_dim=config.get('global_feature_dim', 512),
         zone_feature_dim=config.get('zone_feature_dim', 128),
         global_dropout=config.get('global_dropout', 0.5),
-        zone_dropout=config.get('zone_dropout', 0.3)
+        zone_dropout=config.get('zone_dropout', 0.3),
+        pretrained=config.get('pretrained', True)
     )
     
     return model

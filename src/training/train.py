@@ -31,9 +31,10 @@ from datetime import datetime
 # Add parent directory to path
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
-from models import create_full_model
-from training.data_loader import FER2013Dataset
-from training.augmentation import EmotionAugmenter
+from models import create_full_model 
+from training.data_loader import FER2013Dataset 
+from training.augmentation import EmotionAugmenter 
+from training.multi_dataset import ImageFolderDataset, get_combined_loader
 
 
 class EmotionRecognitionTrainer:
@@ -369,8 +370,10 @@ def main():
                        help='Batch size (overrides config)')
     parser.add_argument('--output_dir', type=str, default=None,
                        help='Directory to save checkpoints (overrides config)')
-    parser.add_argument('--emotions', type=str, default=None,
-                       help='Comma-separated list of emotions to train on (e.g., "Angry,Disgust")')
+    parser.add_argument('--emotions', type=str, default=None, 
+                        help='Comma-separated list of emotions to train on (e.g., "Angry,Disgust")') 
+    parser.add_argument('--extra_data', type=str, default=None, 
+                        help='Comma-separated list of directories for additional datasets') 
     
     args = parser.parse_args()
     
@@ -401,10 +404,22 @@ def main():
     if device == 'cpu':
         print("⚠ CUDA not available, using CPU (training will be slow)")
     
-    # Create data loaders
-    print("Loading datasets...")
-    train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset)
-    val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset)
+    # Create data loaders 
+    print("Loading datasets...") 
+    train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset) 
+    val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset) 
+ 
+    # Add extra datasets if specified
+    train_datasets = [train_dataset]
+    if args.extra_data:
+        extra_dirs = [d.strip() for d in args.extra_data.split(',')]
+        for extra_dir in extra_dirs:
+            if os.path.exists(extra_dir):
+                print(f"Loading extra training data from: {extra_dir}")
+                extra_ds = ImageFolderDataset(root_dir=extra_dir, transform=train_dataset.transform)
+                train_datasets.append(extra_ds)
+            else:
+                print(f"Warning: Extra data directory not found: {extra_dir}")
 
     # Calculate class weights for imbalanced datasets
     # Always calculate if not explicitly provided in config
@@ -426,24 +441,23 @@ def main():
     else:
         print(f"Using provided class weights from config")
 
-    # Adjust for CPU training (no multiprocessing, no pinned memory)
-    num_workers = 0 if device == 'cpu' else config['hardware']['num_workers']
-    pin_memory = False if device == 'cpu' else config['hardware']['pin_memory']
-
-    train_loader = DataLoader(
-        train_dataset,
+    # Adjust for CPU training (no multiprocessing, no pinned memory) 
+    num_workers = 0 if device == 'cpu' else config['hardware']['num_workers'] 
+    pin_memory = False if device == 'cpu' else config['hardware']['pin_memory'] 
+ 
+    train_loader = get_combined_loader(
+        config=config,
+        datasets=train_datasets,
         batch_size=config['training']['batch_size'],
-        shuffle=True,
-        num_workers=num_workers,
-        pin_memory=pin_memory
+        shuffle=True
     )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=config['training']['batch_size'],
-        shuffle=False,
-        num_workers=num_workers,
-        pin_memory=pin_memory
+ 
+    val_loader = DataLoader( 
+        val_dataset, 
+        batch_size=config['training']['batch_size'], 
+        shuffle=False, 
+        num_workers=num_workers, 
+        pin_memory=pin_memory 
     )
     
     # Create model
