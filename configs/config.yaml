@@ -2,7 +2,8 @@
 
 # Data paths
 data:
-  fer2013_path: "data/fer2013/fer2013.csv"
+  train_csv: "train_combined.csv"
+  test_csv: "test_set.csv"
   checkpoint_dir: "checkpoints/"
   logs_dir: "logs/"
 
