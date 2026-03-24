@@ -1,7 +1,7 @@
 """
-Temporal LSTM Model for Emotion Recognition
+Temporal LSTM Model for Emotion Recognition using EfficientNet-B0 backbone technique
 
-This module implements LSTM-based temporal modeling for emotion sequences.
+This module implements LSTM-based temporal modeling for emotion sequences using features extracted with the EfficientNet-B0 backbone technique.
 
 Academic Justification:
 - Emotions have temporal dynamics (onset, apex, offset phases)

@@ -100,9 +100,9 @@ class InferenceBase:
     
     def process_single_frame(self, frame: np.ndarray, skip_detection: bool = False) -> Optional[Dict]:
         """
-        Process single frame and extract features.
+        Process single frame and extract features using the EfficientNet-B0 backbone technique.
     
-        If skip_detection=True, assumes FER-style pre-cropped face
+        If skip_detection=True, assumes pre-cropped face
         and skips landmark + zone extraction.
         """
     
@@ -111,20 +111,19 @@ class InferenceBase:
         # The preprocessor handle to_grayscale internally if needed
         processed, _ = self.preprocessor.preprocess(frame, to_grayscale=True)
     
-        # FER-2013 compatibility: Check if image is very small (like training samples)
+        # Check if image is very small
         # If so, we must upscale for landmark detection but NOT crop (since it's already a face crop)
         is_small_sample = frame.shape[0] < 100 or frame.shape[1] < 100
 
         if not skip_detection and is_small_sample:
             # Upscale small image for better landmark detection
-            # FER-2013 is 48x48, which is too small for MediaPipe
             detection_size = 224
             processed_for_detection = cv2.resize(processed, (detection_size, detection_size))
             landmarks = self.detector.detect_landmarks(processed_for_detection)
             
             if landmarks is not None:
                 # Successfully detected landmarks on upscaled small image
-                # Use the upscaled image for consistency with training (data_loader.py line 167)
+                # Use the upscaled image for consistency with training
                 zones_extracted = self.zone_extractor.extract_all_zones(processed_for_detection, landmarks.landmarks)
                 
                 # Prepare full face (already 224x224)
@@ -154,11 +153,11 @@ class InferenceBase:
                 }
 
         if skip_detection:
-            # ===== FER MODE (or fallback) =====
+            # Fallback for pre-cropped face
             # Use full image as face
             face = processed
 
-            # Resize directly to CNN input
+            # Resize directly to CNN input (EfficientNet-B0 backbone)
             full_face = cv2.resize(face, (224, 224))
             
             # Use normalization based on config

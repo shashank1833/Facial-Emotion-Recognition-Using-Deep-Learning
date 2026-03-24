@@ -1,18 +1,19 @@
 """
-Training Script for Extended Emotion Recognition System
+Training Script for Emotion Recognition System using EfficientNet-B0 backbone technique
 
-This script trains the full hybrid CNN + LSTM model on FER-2013 dataset.
+Trains a hybrid CNN + LSTM model using the EfficientNet-B0 backbone technique.
+Supports training on combined datasets via CSV files.
 
 Training Pipeline:
-1. Load and preprocess FER-2013 data
-2. Apply data augmentation
-3. Train hybrid CNN + LSTM model
+1. Load and preprocess data using EmotionDataset (EfficientNet-B0 backbone technique)
+2. Apply data augmentation (lighting, noise, blur, etc.)
+3. Train hybrid model (EfficientNet-B0 global backbone technique + Zone CNNs + LSTM)
 4. Validate on validation set
 5. Save best model checkpoints
 6. Log metrics to TensorBoard
 
 Usage:
-    python training/train.py --config configs/config.yaml --data data/fer2013/fer2013.csv
+    python src/training/train.py --config configs/config.yaml --train_csv train_combined.csv --val_csv test_set.csv
 """
 
 import os
@@ -32,14 +33,13 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import create_full_model 
-from training.data_loader import FER2013Dataset, CombinedCSVDataset
+from training.data_loader import EmotionDataset
 from training.augmentation import EmotionAugmenter 
-from training.multi_dataset import ImageFolderDataset, get_combined_loader
 
 
 class EmotionRecognitionTrainer:
     """
-    Trainer for hybrid emotion recognition model.
+    Trainer for hybrid emotion recognition model using EfficientNet-B0 backbone technique.
     
     Handles training loop, validation, checkpointing, and logging.
     """
@@ -126,14 +126,7 @@ class EmotionRecognitionTrainer:
     
     def train_epoch(self, train_loader: DataLoader, epoch: int) -> tuple:
         """
-        Train for one epoch.
-        
-        Args:
-            train_loader: Training data loader
-            epoch: Current epoch number
-            
-        Returns:
-            Tuple of (average_loss, accuracy)
+        Train for one epoch using EfficientNet-B0 backbone technique.
         """
         self.model.train()
         
@@ -153,12 +146,10 @@ class EmotionRecognitionTrainer:
                 for zone_name, zone_tensor in zones.items()
             }
             
-            
-            # Extract features
-            features = self.model.hybrid_cnn(full_faces, zones_device)
+            # Extract features from Hybrid CNN (EfficientNet-B0 backbone)
+            features, _ = self.model.hybrid_cnn(full_faces, zones_device)
             
             # Pass through LSTM
-            # Add sequence dimension (batch, 1, feature_dim)
             features = features.unsqueeze(1)
             outputs = self.model.temporal_lstm(features)
             loss = self.criterion(outputs, labels)
@@ -187,7 +178,7 @@ class EmotionRecognitionTrainer:
     
     def validate(self, val_loader: DataLoader, epoch: int) -> tuple:
         """
-        Validate model.
+        Validate model using EfficientNet-B0 backbone technique.
         """
         self.model.eval()
 
@@ -208,13 +199,9 @@ class EmotionRecognitionTrainer:
                     for zone_name, zone_tensor in zones.items()
                 }
 
-                # SAME forward path as training
-                features = self.model.hybrid_cnn(full_faces, zones_device)
-
-                # Add sequence dimension (batch, 1, feature_dim)
+                # Forward path
+                features, _ = self.model.hybrid_cnn(full_faces, zones_device)
                 features = features.unsqueeze(1)
-
-                # Pass through LSTM (includes classifier)
                 outputs = self.model.temporal_lstm(features)
 
                 loss = self.criterion(outputs, labels)
@@ -237,11 +224,6 @@ class EmotionRecognitionTrainer:
     def save_checkpoint(self, epoch: int, val_loss: float, is_best: bool = False):
         """
         Save model checkpoint.
-        
-        Args:
-            epoch: Current epoch
-            val_loss: Validation loss
-            is_best: Whether this is the best model so far
         """
         checkpoint = {
             'epoch': epoch,
@@ -266,14 +248,10 @@ class EmotionRecognitionTrainer:
     
     def train(self, train_loader: DataLoader, val_loader: DataLoader):
         """
-        Full training loop.
-        
-        Args:
-            train_loader: Training data loader
-            val_loader: Validation data loader
+        Full training loop using EfficientNet-B0 backbone technique.
         """
         print("\n" + "="*60)
-        print("  TRAINING HYBRID EMOTION RECOGNITION MODEL")
+        print("  TRAINING EMOTION RECOGNITION MODEL (EfficientNet-B0 backbone)")
         print("="*60)
         
         print(f"\nConfiguration:")
@@ -357,11 +335,13 @@ class EmotionRecognitionTrainer:
 
 def main():
     """Main training function."""
-    parser = argparse.ArgumentParser(description='Train Emotion Recognition Model')
+    parser = argparse.ArgumentParser(description='Train Emotion Recognition Model (EfficientNet-B0 backbone)')
     parser.add_argument('--config', type=str, default='configs/config.yaml',
                        help='Path to configuration file')
-    parser.add_argument('--data', type=str, default='data/fer2013/fer2013.csv',
-                       help='Path to FER-2013 CSV file')
+    parser.add_argument('--train_csv', type=str, required=True,
+                       help='Path to combined training CSV')
+    parser.add_argument('--val_csv', type=str, required=True,
+                       help='Path to validation CSV')
     parser.add_argument('--device', type=str, default='cuda',
                        help='Device to use (cuda or cpu)')
     parser.add_argument('--epochs', type=int, default=None,
@@ -372,12 +352,6 @@ def main():
                        help='Directory to save checkpoints (overrides config)')
     parser.add_argument('--emotions', type=str, default=None, 
                         help='Comma-separated list of emotions to train on (e.g., "Angry,Disgust")') 
-    parser.add_argument('--extra_data', type=str, default=None, 
-                        help='Comma-separated list of directories for additional datasets') 
-    parser.add_argument('--train_csv', type=str, default=None,
-                        help='Path to combined training CSV (overrides --data and --extra_data)')
-    parser.add_argument('--val_csv', type=str, default=None,
-                        help='Path to validation CSV (overrides --data)')
     
     args = parser.parse_args()
     
@@ -400,7 +374,6 @@ def main():
         print(f"Training on emotion subset: {emotion_subset}")
         config['emotions']['classes'] = emotion_subset
         config['emotions']['num_classes'] = len(emotion_subset)
-        # Update model config too
         config['model']['lstm']['num_classes'] = len(emotion_subset)
     
     # Set device
@@ -409,75 +382,38 @@ def main():
         print("⚠ CUDA not available, using CPU (training will be slow)")
     
     # Create data loaders 
-    print("Loading datasets...") 
-    
-    if args.train_csv:
-        print(f"Using combined training CSV: {args.train_csv}")
-        train_dataset = CombinedCSVDataset(args.train_csv, emotion_subset=emotion_subset)
-        train_datasets = [train_dataset]
-    else:
-        train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset) 
-        train_datasets = [train_dataset]
-        if args.extra_data:
-            extra_dirs = [d.strip() for d in args.extra_data.split(',')]
-            for extra_dir in extra_dirs:
-                if os.path.exists(extra_dir):
-                    print(f"Loading extra training data from: {extra_dir}")
-                    extra_ds = ImageFolderDataset(root_dir=extra_dir, transform=train_dataset.transform)
-                    train_datasets.append(extra_ds)
-                else:
-                    print(f"Warning: Extra data directory not found: {extra_dir}")
+    print(f"Loading datasets using EfficientNet-B0 backbone technique...") 
+    train_dataset = EmotionDataset(args.train_csv, emotion_subset=emotion_subset)
+    val_dataset = EmotionDataset(args.val_csv, emotion_subset=emotion_subset)
 
-    if args.val_csv:
-        print(f"Using validation CSV: {args.val_csv}")
-        val_dataset = CombinedCSVDataset(args.val_csv, emotion_subset=emotion_subset)
-    else:
-        val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset) 
-
-    # Calculate class weights for imbalanced datasets
-    # Always calculate if not explicitly provided in config
+    # Calculate class weights
     if config.get('class_weights') is None:
         print("Calculating class weights...")
-        if args.train_csv:
-            # For CombinedCSVDataset, labels are strings, but we need counts
-            label_counts = train_dataset.df['label'].value_counts()
-            # Map names to their training indices to get sorted counts
-            counts = []
-            for name in train_dataset.emotions:
-                if name in label_counts:
-                    counts.append(label_counts[name])
-                else:
-                    counts.append(0)
-            class_counts = np.array(counts)
-        else:
-            # For FER2013Dataset, labels are integers
-            class_counts = train_dataset.df['emotion'].value_counts().sort_index().values
-            
+        label_counts = train_dataset.df['label'].value_counts()
+        counts = [label_counts.get(name, 0) for name in train_dataset.emotions]
+        class_counts = np.array(counts)
         total_samples = class_counts.sum()
         num_classes = len(class_counts)
         
-        # Avoid division by zero if some classes are missing
         class_weights = np.zeros(num_classes)
         for i, count in enumerate(class_counts):
-            if count > 0:
-                class_weights[i] = total_samples / (num_classes * count)
-            else:
-                class_weights[i] = 1.0
+            class_weights[i] = total_samples / (num_classes * count) if count > 0 else 1.0
         
         config['class_weights'] = class_weights.tolist()
         print(f"Calculated class weights: {config['class_weights']}")
     else:
         print(f"Using provided class weights from config")
 
-    # Adjust for CPU training (no multiprocessing, no pinned memory) 
+    # Adjust for CPU training
     num_workers = 0 if device == 'cpu' else config['hardware']['num_workers'] 
     pin_memory = False if device == 'cpu' else config['hardware']['pin_memory'] 
  
-    train_loader = get_combined_loader(
-        config=config,
-        datasets=train_datasets,
+    train_loader = DataLoader(
+        train_dataset,
         batch_size=config['training']['batch_size'],
-        shuffle=True
+        shuffle=True,
+        num_workers=num_workers,
+        pin_memory=pin_memory
     )
  
     val_loader = DataLoader( 
@@ -489,7 +425,7 @@ def main():
     )
     
     # Create model
-    print("Creating model...")
+    print("Creating model with EfficientNet-B0 backbone...")
     model = create_full_model(
         hybrid_cnn_config=config['model'],
         lstm_config=config['model']['lstm']

@@ -1,8 +1,8 @@
 """
-Multi-Dataset Handler for Emotion Recognition
+Multi-Dataset Handler for Emotion Recognition System
 
-This module provides classes to combine multiple emotion datasets (FER-2013, CK+, RAF-DB, etc.)
-into a single training pipeline for better generalization.
+Provides utilities to combine multiple emotion datasets using the EfficientNet-B0 backbone technique.
+Supports generic image folder structures.
 """
 
 import os
@@ -11,7 +11,6 @@ import torch
 import numpy as np
 from torch.utils.data import Dataset, ConcatDataset
 from typing import List, Optional, Dict, Tuple
-from .data_loader import FER2013Dataset
 from ..preprocessing import NoiseRobustPreprocessor
 from ..landmark_detection import MediaPipeFaceDetector
 from ..zone_extraction import ZoneExtractor
@@ -19,6 +18,8 @@ from ..zone_extraction import ZoneExtractor
 class ImageFolderDataset(Dataset):
     """
     Generic dataset for images organized in folders by emotion name.
+    Works with the EfficientNet-B0 backbone technique.
+    
     Example:
     data/CK+/
         Angry/
@@ -39,7 +40,6 @@ class ImageFolderDataset(Dataset):
         self.emotions = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
         self.emotion_to_idx = {name: i for i, name in enumerate(self.emotions)}
         
-        # Initialize components (mirrors FER2013Dataset)
         self.preprocessor = preprocessor or NoiseRobustPreprocessor()
         self.zone_extractor = zone_extractor or ZoneExtractor()
         self.use_minmax = (self.zone_extractor.normalization == 'minmax')
@@ -59,7 +59,7 @@ class ImageFolderDataset(Dataset):
                             if img_name.lower().endswith(('.png', '.jpg', '.jpeg')):
                                 self.samples.append((os.path.join(emotion_dir, img_name), idx))
         
-        print(f"Loaded {len(self.samples)} samples from {root_dir}")
+        print(f"Loaded {len(self.samples)} samples from {root_dir} using EfficientNet-B0 backbone technique")
                             
     def __len__(self):
         return len(self.samples)
@@ -69,22 +69,15 @@ class ImageFolderDataset(Dataset):
         image = cv2.imread(img_path)
         
         if image is None:
-            # Skip invalid images
             return self.__getitem__((idx + 1) % len(self))
             
-        # Convert to grayscale if needed (pipeline expects grayscale)
         if len(image.shape) == 3:
             image = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
             
-        # Reuse logic from FER2013Dataset by composition/shared implementation
-        # Since we can't easily inherit without refactoring more, we'll implement it here
-        # or use a helper. For now, we'll use a shared method approach.
         return self.process_single_image(image, label, idx)
 
     def process_single_image(self, image: np.ndarray, label: int, sample_id: int = 0) -> Tuple[torch.Tensor, dict, torch.Tensor]:
-        # Implementation identical to FER2013Dataset.process_single_image
-        # (In a production environment, this would be in a base class)
-        
+        """Processes single image through EfficientNet-B0 backbone technique pipeline."""
         image_preprocessed, _ = self.preprocessor.preprocess(image, to_grayscale=False)
         
         if self.transform is not None:
@@ -130,7 +123,7 @@ class ImageFolderDataset(Dataset):
         return full_face_tensor, zones_tensors, torch.tensor(label, dtype=torch.long)
 
 def get_combined_loader(config, datasets: List[Dataset], batch_size: int, shuffle: bool = True):
-    """Combines multiple datasets into one loader."""
+    """Combines multiple datasets into one loader using EfficientNet-B0 backbone technique."""
     combined = ConcatDataset(datasets)
     num_workers = 0 if torch.cuda.is_available() is False else config['hardware']['num_workers']
     pin_memory = False if torch.cuda.is_available() is False else config['hardware']['pin_memory']

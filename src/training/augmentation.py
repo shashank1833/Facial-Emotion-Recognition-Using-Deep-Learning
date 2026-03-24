@@ -380,7 +380,7 @@ if __name__ == "__main__":
     
     print("\nAcademic Justification:")
     print("  - Simulates real-world deployment conditions")
-    print("  - Prevents overfitting to clean FER-2013 data")
+    print("  - Prevents overfitting to training data")
     print("  - Improves robustness to noise and occlusions")
     print("  - Expected: 5-15% accuracy improvement")
     

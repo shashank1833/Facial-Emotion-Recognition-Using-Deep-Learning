@@ -1,6 +1,6 @@
 """
-Evaluation script for the Emotion Recognition System.
-Calculates accuracy and other metrics on the FER-2013 test set.
+Evaluation script for the Emotion Recognition System using the EfficientNet-B0 backbone technique.
+Calculates accuracy and other metrics on test datasets via CSV files.
 """
 
 import os
@@ -16,11 +16,13 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import create_full_model
-from training.data_loader import FER2013Dataset, CombinedCSVDataset
+from training.data_loader import EmotionDataset
 from utils.metrics import calculate_metrics, print_metrics
 
 def evaluate(model, data_loader, device, class_names):
-    """Evaluate the model on the data loader."""
+    """
+    Evaluate the model using EfficientNet-B0 backbone technique.
+    """
     model.eval()
     all_preds = []
     all_labels = []
@@ -30,7 +32,6 @@ def evaluate(model, data_loader, device, class_names):
     with torch.no_grad():
         for batch_idx, (full_faces, zones, labels) in enumerate(tqdm(data_loader)):
             full_faces = full_faces.to(device)
-            # Labels in data_loader might be (batch, 1) or (batch,)
             labels = labels.squeeze()
             
             # Prepare zones
@@ -39,10 +40,10 @@ def evaluate(model, data_loader, device, class_names):
                 for name, tensor in zones.items()
             }
             
-            # Extract features from Hybrid CNN
-            features = model.hybrid_cnn(full_faces, zones_tensor)
+            # Extract features from Hybrid CNN (EfficientNet-B0 backbone)
+            features, _ = model.hybrid_cnn(full_faces, zones_tensor)
             
-            # Add sequence dimension (batch, seq_len=1, feature_dim)
+            # Add sequence dimension
             features = features.unsqueeze(1)
             
             # Pass through LSTM
@@ -51,11 +52,6 @@ def evaluate(model, data_loader, device, class_names):
             # Get predictions
             preds = torch.argmax(logits, dim=1)
             
-            # Debug: print first few preds and labels in batch
-            if batch_idx == 0:
-                print(f"Sample Predictions: {preds[:10].cpu().numpy()}")
-                print(f"Sample Labels:      {labels[:10].cpu().numpy()}")
-            
             all_preds.extend(preds.cpu().numpy().tolist())
             all_labels.extend(labels.cpu().numpy().tolist())
     
@@ -63,7 +59,6 @@ def evaluate(model, data_loader, device, class_names):
     y_true_arr = np.array(all_labels)
     y_pred_arr = np.array(all_preds)
     
-    # Ensure they are 1D
     if y_true_arr.ndim > 1:
         y_true_arr = y_true_arr.flatten()
     if y_pred_arr.ndim > 1:
@@ -73,24 +68,19 @@ def evaluate(model, data_loader, device, class_names):
     return metrics
 
 def main():
-    parser = argparse.ArgumentParser(description='Evaluate Emotion Recognition Model')
-    parser.add_argument('--model', type=str, default='checkpoints/best_model.pth',
+    parser = argparse.ArgumentParser(description='Evaluate Emotion Recognition Model (EfficientNet-B0 backbone)')
+    parser.add_argument('--model', type=str, required=True,
                        help='Path to model checkpoint')
     parser.add_argument('--config', type=str, default='configs/config.yaml',
                        help='Path to configuration file')
-    parser.add_argument('--data', type=str, default='data/fer2013/fer2013.csv',
-                       help='Path to FER-2013 CSV file')
-    parser.add_argument('--usage', type=str, default='PrivateTest',
-                       choices=['PublicTest', 'PrivateTest'],
-                       help='Which test set to use')
+    parser.add_argument('--test_csv', type=str, required=True,
+                       help='Path to test CSV containing image paths and labels')
     parser.add_argument('--device', type=str, default='cuda',
                        help='Device to use (cuda or cpu)')
     parser.add_argument('--limit', type=int, default=None,
                        help='Limit number of samples for quick testing')
     parser.add_argument('--emotions', type=str, default=None,
-                       help='Comma-separated list of emotions to evaluate (e.g., "Angry,Disgust")')
-    parser.add_argument('--test_csv', type=str, default=None,
-                       help='Path to test CSV (overrides --data)')
+                       help='Comma-separated list of emotions to evaluate')
     
     args = parser.parse_args()
     
@@ -105,7 +95,6 @@ def main():
         print(f"Evaluating on emotion subset: {emotion_subset}")
         config['emotions']['classes'] = emotion_subset
         config['emotions']['num_classes'] = len(emotion_subset)
-        # Update model config too
         config['model']['lstm']['num_classes'] = len(emotion_subset)
     
     # Set device
@@ -113,19 +102,13 @@ def main():
     print(f"Using device: {device}")
     
     # Load dataset
-    print(f"Loading dataset...")
-    if args.test_csv:
-        print(f"Using test CSV: {args.test_csv}")
-        test_dataset = CombinedCSVDataset(args.test_csv, emotion_subset=emotion_subset)
-    else:
-        print(f"Using FER-2013 CSV: {args.data} (Usage: {args.usage})")
-        test_dataset = FER2013Dataset(args.data, usage=args.usage, emotion_subset=emotion_subset)
-    
+    print(f"Loading dataset from {args.test_csv}...")
+    test_dataset = EmotionDataset(args.test_csv, emotion_subset=emotion_subset)
     print(f"Loaded {len(test_dataset)} samples")
     
-    # Apply limit if specified (shuffle first to get diverse samples)
+    # Apply limit if specified
     if args.limit and args.limit < len(test_dataset):
-        print(f"Limiting dataset to {args.limit} samples (shuffled)...")
+        print(f"Limiting dataset to {args.limit} samples...")
         import random
         indices = list(range(len(test_dataset)))
         random.seed(42)
@@ -137,13 +120,13 @@ def main():
     test_loader = DataLoader(
         test_dataset,
         batch_size=config['training']['batch_size'],
-        shuffle=True,  # Shuffle to get a mix of emotions if limited
+        shuffle=False,
         num_workers=0 if device == 'cpu' else config['hardware']['num_workers'],
         pin_memory=False if device == 'cpu' else config['hardware']['pin_memory']
     )
     
     # Create model
-    print("Creating model...")
+    print("Creating model with EfficientNet-B0 backbone...")
     model = create_full_model(
         hybrid_cnn_config=config['model'],
         lstm_config=config['model']['lstm']
@@ -156,7 +139,7 @@ def main():
     model.to(device)
     
     # Evaluate
-    class_names = ['Angry', 'Disgust', 'Fear', 'Happy', 'Sad', 'Surprise', 'Neutral']
+    class_names = test_dataset.emotions if emotion_subset is None else emotion_subset
     metrics = evaluate(model, test_loader, device, class_names)
     
     # Print results

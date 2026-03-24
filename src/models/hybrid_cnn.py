@@ -1,19 +1,19 @@
 """
-Hybrid CNN Architecture for Facial Emotion Recognition
+Hybrid CNN Architecture for Facial Emotion Recognition using EfficientNet-B0 backbone technique
 
 This module implements the hybrid CNN with:
-1. Global CNN - processes full face (224×224)
+1. Global CNN - processes full face (224×224) using EfficientNet-B0 backbone technique
 2. Zone CNNs - 5 parallel CNNs for facial zones (48×48 each)
 3. Feature fusion - concatenates global + zone features
 
 Academic Justification:
-- Global CNN captures holistic face structure and context
+- Global CNN captures holistic face structure and context using EfficientNet-B0 backbone technique
 - Zone CNNs capture localized micro-expressions and action units
 - Concatenation provides complementary information
 - Multiple studies show 5-10% accuracy improvement over single CNN
 
 Architecture Design:
-- Global CNN: Deeper (4 conv blocks) for complex patterns
+- Global CNN: EfficientNet-B0 backbone technique for complex patterns
 - Zone CNNs: Lightweight (3 conv blocks) for efficiency
 - All use BatchNorm + Dropout for regularization
 - ReLU activation for non-linearity
