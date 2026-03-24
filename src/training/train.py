@@ -13,7 +13,7 @@ Training Pipeline:
 6. Log metrics to TensorBoard
 
 Usage:
-    python src/training/train.py --config configs/config.yaml --train_csv train_combined.csv --val_csv test_set.csv
+    python src/training/train.py --config configs/config.yaml --train_csv train.csv --val_csv test.csv
 """
 
 import os

@@ -2,8 +2,8 @@
 
 # Data paths
 data:
-  train_csv: "train_combined.csv"
-  test_csv: "test_set.csv"
+  train_csv: "train.csv"
+  test_csv: "test.csv"
   checkpoint_dir: "checkpoints/"
   logs_dir: "logs/"
 
