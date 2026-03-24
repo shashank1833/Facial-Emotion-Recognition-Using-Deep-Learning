@@ -33,9 +33,9 @@ def create_df(path):
                 print(f"Processing {label} -> {norm} in {path}")
                 for img in os.listdir(label_path):
                     if img.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        # Store path relative to project root or absolute? 
-                        # Usually project root is better for portability
-                        data.append([os.path.join(label_path, img), norm])
+                        # Use forward slashes for cross-platform compatibility (Windows and Colab)
+                        full_path = os.path.join(label_path, img).replace('\\', '/')
+                        data.append([full_path, norm])
     return pd.DataFrame(data, columns=["image_path", "label"])
 
 print("Creating training dataframe...")
