@@ -93,6 +93,13 @@ class EmotionDataset(Dataset):
         """
         row = self.df.iloc[idx]
         img_path = row['image_path']
+        
+        # Ensure path compatibility between Windows and Linux/Colab
+        if os.sep == '/':
+            img_path = img_path.replace('\\', '/')
+        else:
+            img_path = img_path.replace('/', '\\')
+            
         label_name = row['label']
         label = self.label_mapping[label_name]
         
