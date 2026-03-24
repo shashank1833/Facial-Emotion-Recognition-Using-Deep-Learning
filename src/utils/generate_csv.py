@@ -2,9 +2,9 @@ import os
 import pandas as pd
 
 # Define paths relative to the project root
-raf_path = "data/Raf-DB/DATASET/train"
-affectnet_path = "data/AffectNet/Train"
-fer_path = "data/fer2013/test"
+raf_train_path = "data/Raf-DB/DATASET/train"
+affectnet_train_path = "data/AffectNet/Train"
+affectnet_test_path = "data/AffectNet/Test"
 
 def normalize_label(label):
     # Mapping for standard labels and Raf-DB numerical labels
@@ -39,21 +39,21 @@ def create_df(path):
     return pd.DataFrame(data, columns=["image_path", "label"])
 
 print("Creating training dataframe...")
-train_raf = create_df(raf_path)
-train_affectnet = create_df(affectnet_path)
+train_raf = create_df(raf_train_path)
+train_affectnet = create_df(affectnet_train_path)
 
 if not train_raf.empty or not train_affectnet.empty:
     train_df = pd.concat([train_raf, train_affectnet]).sample(frac=1).reset_index(drop=True)
-    train_df.to_csv("train_combined.csv", index=False)
-    print(f"Saved {len(train_df)} samples to train_combined.csv")
+    train_df.to_csv("train.csv", index=False)
+    print(f"Saved {len(train_df)} samples to train.csv")
 else:
     print("No training data found.")
 
 print("\nCreating test dataframe...")
-test_df = create_df(fer_path)
+test_df = create_df(affectnet_test_path)
 if not test_df.empty:
-    test_df.to_csv("test_fer2013.csv", index=False)
-    print(f"Saved {len(test_df)} samples to test_fer2013.csv")
+    test_df.to_csv("test.csv", index=False)
+    print(f"Saved {len(test_df)} samples to test.csv")
 else:
     print("No test data found.")
 
