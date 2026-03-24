@@ -32,7 +32,7 @@ from datetime import datetime
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import create_full_model 
-from training.data_loader import FER2013Dataset 
+from training.data_loader import FER2013Dataset, CombinedCSVDataset
 from training.augmentation import EmotionAugmenter 
 from training.multi_dataset import ImageFolderDataset, get_combined_loader
 
@@ -374,6 +374,10 @@ def main():
                         help='Comma-separated list of emotions to train on (e.g., "Angry,Disgust")') 
     parser.add_argument('--extra_data', type=str, default=None, 
                         help='Comma-separated list of directories for additional datasets') 
+    parser.add_argument('--train_csv', type=str, default=None,
+                        help='Path to combined training CSV (overrides --data and --extra_data)')
+    parser.add_argument('--val_csv', type=str, default=None,
+                        help='Path to validation CSV (overrides --data)')
     
     args = parser.parse_args()
     
@@ -406,26 +410,50 @@ def main():
     
     # Create data loaders 
     print("Loading datasets...") 
-    train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset) 
-    val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset) 
- 
-    # Add extra datasets if specified
-    train_datasets = [train_dataset]
-    if args.extra_data:
-        extra_dirs = [d.strip() for d in args.extra_data.split(',')]
-        for extra_dir in extra_dirs:
-            if os.path.exists(extra_dir):
-                print(f"Loading extra training data from: {extra_dir}")
-                extra_ds = ImageFolderDataset(root_dir=extra_dir, transform=train_dataset.transform)
-                train_datasets.append(extra_ds)
-            else:
-                print(f"Warning: Extra data directory not found: {extra_dir}")
+    
+    if args.train_csv:
+        print(f"Using combined training CSV: {args.train_csv}")
+        train_dataset = CombinedCSVDataset(args.train_csv, emotion_subset=emotion_subset)
+        train_datasets = [train_dataset]
+    else:
+        train_dataset = FER2013Dataset(args.data, usage='Training', emotion_subset=emotion_subset) 
+        train_datasets = [train_dataset]
+        if args.extra_data:
+            extra_dirs = [d.strip() for d in args.extra_data.split(',')]
+            for extra_dir in extra_dirs:
+                if os.path.exists(extra_dir):
+                    print(f"Loading extra training data from: {extra_dir}")
+                    extra_ds = ImageFolderDataset(root_dir=extra_dir, transform=train_dataset.transform)
+                    train_datasets.append(extra_ds)
+                else:
+                    print(f"Warning: Extra data directory not found: {extra_dir}")
+
+    if args.val_csv:
+        print(f"Using validation CSV: {args.val_csv}")
+        val_dataset = CombinedCSVDataset(args.val_csv, emotion_subset=emotion_subset)
+    else:
+        val_dataset = FER2013Dataset(args.data, usage='PublicTest', emotion_subset=emotion_subset) 
 
     # Calculate class weights for imbalanced datasets
     # Always calculate if not explicitly provided in config
     if config.get('class_weights') is None:
-        class_counts = train_dataset.df['emotion'].value_counts().sort_index().values
-        total_samples = len(train_dataset)
+        print("Calculating class weights...")
+        if args.train_csv:
+            # For CombinedCSVDataset, labels are strings, but we need counts
+            label_counts = train_dataset.df['label'].value_counts()
+            # Map names to their training indices to get sorted counts
+            counts = []
+            for name in train_dataset.emotions:
+                if name in label_counts:
+                    counts.append(label_counts[name])
+                else:
+                    counts.append(0)
+            class_counts = np.array(counts)
+        else:
+            # For FER2013Dataset, labels are integers
+            class_counts = train_dataset.df['emotion'].value_counts().sort_index().values
+            
+        total_samples = class_counts.sum()
         num_classes = len(class_counts)
         
         # Avoid division by zero if some classes are missing

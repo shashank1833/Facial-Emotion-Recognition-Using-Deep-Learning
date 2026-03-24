@@ -16,7 +16,7 @@ import numpy as np
 sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from models import create_full_model
-from training.data_loader import FER2013Dataset
+from training.data_loader import FER2013Dataset, CombinedCSVDataset
 from utils.metrics import calculate_metrics, print_metrics
 
 def evaluate(model, data_loader, device, class_names):
@@ -89,6 +89,8 @@ def main():
                        help='Limit number of samples for quick testing')
     parser.add_argument('--emotions', type=str, default=None,
                        help='Comma-separated list of emotions to evaluate (e.g., "Angry,Disgust")')
+    parser.add_argument('--test_csv', type=str, default=None,
+                       help='Path to test CSV (overrides --data)')
     
     args = parser.parse_args()
     
@@ -111,9 +113,15 @@ def main():
     print(f"Using device: {device}")
     
     # Load dataset
-    print(f"Loading {args.usage} dataset...")
-    test_dataset = FER2013Dataset(args.data, usage=args.usage, emotion_subset=emotion_subset)
-    print(f"Loaded {len(test_dataset)} samples for {args.usage}")
+    print(f"Loading dataset...")
+    if args.test_csv:
+        print(f"Using test CSV: {args.test_csv}")
+        test_dataset = CombinedCSVDataset(args.test_csv, emotion_subset=emotion_subset)
+    else:
+        print(f"Using FER-2013 CSV: {args.data} (Usage: {args.usage})")
+        test_dataset = FER2013Dataset(args.data, usage=args.usage, emotion_subset=emotion_subset)
+    
+    print(f"Loaded {len(test_dataset)} samples")
     
     # Apply limit if specified (shuffle first to get diverse samples)
     if args.limit and args.limit < len(test_dataset):
