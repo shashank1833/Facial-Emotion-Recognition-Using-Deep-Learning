@@ -1,4 +1,4 @@
-# 🧠 Aura AI - Facial Emotion Recognition System
+#  Facial Emotion Recognition System
 
 <div align="center">
 
@@ -35,7 +35,7 @@
 
 ## 🎯 Overview
 
-Aura AI is an advanced facial emotion recognition system that combines state-of-the-art deep learning techniques with a modern web interface. The system analyzes human emotions in real-time using a hybrid CNN-LSTM architecture that captures both spatial facial features and temporal emotion transitions.
+This is an advanced facial emotion recognition system that combines state-of-the-art deep learning techniques with a modern web interface. The system analyzes human emotions in real-time using a hybrid CNN-LSTM architecture that captures both spatial facial features and temporal emotion transitions.
 
 ### Key Capabilities
 
@@ -52,7 +52,7 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
 ### 🎭 **Emotion Recognition**
 - Detects 7 emotions: **Angry**, **Disgust**, **Fear**, **Happy**, **Sad**, **Surprise**, **Neutral**
 - Real-time confidence scores and probability distributions
-- Temporal analysis for video sequences
+- Temporal analysis using LSTM for improved stability in video feeds
 
 ### 🖼️ **Input Modes**
 - **Image Upload**: Drag-and-drop or file picker for static images
@@ -62,8 +62,8 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
 ### 🔬 **Advanced Processing**
 - **Noise-Robust Preprocessing**: Median filtering and CLAHE normalization
 - **Landmark Detection**: MediaPipe Face Mesh (468 facial landmarks)
-- **Zone-Based Analysis**: Separate processing of eyes, mouth, forehead, and nose regions
-- **Temporal Modeling**: LSTM layers capture emotion transitions
+- **Hybrid Feature Extraction**: Uses **EfficientNet-B0 backbone technique** for holistic face features combined with specialized Zone CNNs for micro-expressions (eyes, mouth, forehead, nose)
+- **Temporal Modeling**: LSTM layers capture sequential emotion transitions
 
 ### 📊 **Analytics Dashboard**
 - Historical analysis records with timestamps
@@ -86,9 +86,9 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
   UI Layer            API Gateway            ML Processing
      │                      │                       │
      ├─ Image Upload        ├─ Request Queue        ├─ MediaPipe
-     ├─ Webcam Capture      ├─ JSON Response        ├─ Zone CNNs
-     ├─ Results Display     ├─ Error Handling       ├─ LSTM
-     └─ Analytics           └─ Health Check         └─ Classifier
+     ├─ Webcam Capture      ├─ JSON Response        ├─ EfficientNet-B0
+     ├─ Results Display     ├─ Error Handling       ├─ Zone CNNs
+     └─ Analytics           └─ Health Check         └─ LSTM
 ```
 
 ### Processing Pipeline
@@ -100,7 +100,7 @@ Aura AI is an advanced facial emotion recognition system that combines state-of-
    - Face detection (MediaPipe)
    - Landmark extraction (468 points)
    - Zone segmentation (5 regions)
-   - Feature extraction (Global + Zone CNNs)
+   - Feature extraction (**EfficientNet-B0 Backbone** + Zone CNNs)
    - Temporal analysis (LSTM)
    - Classification (7 emotions)
 5. **Response** → JSON with emotion, confidence, probabilities
@@ -219,15 +219,19 @@ npm install
 - `@tailwindcss/vite`: Styling framework
 - `vite`: Build tool
 
-### 4️⃣ Download Pre-trained Model
+### 4️⃣ Start Training
+
+The system uses a combined dataset from **Raf-DB** and **AffectNet** for training with the **EfficientNet-B0 backbone technique**.
 
 ```bash
-# Create checkpoints directory
-mkdir -p checkpoints
+# Generate combined dataset CSVs
+python src/utils/generate_csv.py
 
-# Download model (replace with your actual model URL)
-# Place your trained model file as: checkpoints/best_model.pth
+# Run training
+python src/training/train.py --config configs/config.yaml --train_csv train.csv --val_csv test.csv --device cuda
 ```
+
+### 5️⃣ Run the Application
 
 ---
 
@@ -612,7 +616,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 - **MediaPipe**: Face landmark detection
 - **PyTorch**: Deep learning framework
-- **FER-2013 Dataset**: Training data
+- **Raf-DB & AffectNet**: Training data
 - **React**: Frontend framework
 - **Tailwind CSS**: UI styling
 
