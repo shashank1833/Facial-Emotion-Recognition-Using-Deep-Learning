@@ -1,4 +1,4 @@
-#  Facial Emotion Recognition System
+# Aura AI — Facial Emotion Recognition System
 
 <div align="center">
 
@@ -6,282 +6,202 @@
 ![Python](https://img.shields.io/badge/python-3.8+-blue.svg)
 ![Node.js](https://img.shields.io/badge/node-20.19+-green.svg)
 ![React](https://img.shields.io/badge/react-19.2-blue.svg)
+![PyTorch](https://img.shields.io/badge/PyTorch-2.0+-ee4c2c.svg)
+![Accuracy](https://img.shields.io/badge/accuracy-75.33%25-brightgreen.svg)
 
-**A production-grade facial emotion recognition system powered by hybrid CNN-LSTM neural networks**
+**A production-grade facial emotion recognition system powered by EfficientNet-B0, built with a three-tier React + Node.js + Python architecture.**
 
-[Features](#-features) • [Demo](#-demo) • [Installation](#-installation) • [Usage](#-usage) • [Architecture](#-architecture) • [API](#-api)
+[Features](#-features) • [Architecture](#-architecture) • [Installation](#-installation) • [Usage](#-usage) • [API](#-api-documentation) • [Results](#-model-performance)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
-
-- [Overview](#-overview)
-- [Features](#-features)
-- [System Architecture](#-system-architecture)
-- [Prerequisites](#-prerequisites)
-- [Installation](#-installation)
-- [Configuration](#️-configuration)
-- [Usage](#-usage)
-- [API Documentation](#-api-documentation)
-- [Project Structure](#-project-structure)
-- [Technology Stack](#-technology-stack)
-- [Troubleshooting](#-troubleshooting)
-- [Contributing](#-contributing)
-- [License](#-license)
-
----
-
 ## 🎯 Overview
 
-This is an advanced facial emotion recognition system that combines state-of-the-art deep learning techniques with a modern web interface. The system analyzes human emotions in real-time using a hybrid CNN-LSTM architecture that captures both spatial facial features and temporal emotion transitions.
+Aura AI is a full-stack facial emotion recognition application that classifies human facial expressions into 7 emotion categories in real time. The system uses an **EfficientNet-B0** convolutional neural network trained on a combined **AffectNet + RAF-DB** dataset and tested on **FER2013**, served through a Python inference engine, a Node.js/Express REST API, and a React/Vite frontend.
 
 ### Key Capabilities
 
-- **Real-time Analysis**: Process emotions from live webcam feeds with minimal latency
-- **Multi-format Support**: Analyze static images (JPG/PNG) and video files (MP4/MOV)
-- **High Accuracy**: Hybrid zone-based CNN architecture for precise emotion detection
-- **Production Ready**: RESTful API with queue-based processing and error handling
-- **Modern UI**: Beautiful, responsive React interface with 3D visual effects
+- **Real-time Analysis** — Analyze emotions from live webcam feeds with low latency
+- **Multi-format Input** — Supports static images (JPG/PNG) and webcam capture
+- **High Accuracy** — 75.33% test accuracy across 7 emotion classes
+- **Production Ready** — Queue-based REST API with error handling and health checks
+- **Modern UI** — Responsive React interface with analytics dashboard
 
 ---
 
 ## ✨ Features
 
-### 🎭 **Emotion Recognition**
-- Detects 7 emotions: **Angry**, **Disgust**, **Fear**, **Happy**, **Sad**, **Surprise**, **Neutral**
-- Real-time confidence scores and probability distributions
-- Temporal analysis using LSTM for improved stability in video feeds
+### 🎭 Emotion Recognition
+- Detects 7 emotions: **Angry, Disgust, Fear, Happy, Sad, Surprise, Neutral**
+- Per-class confidence scores and full probability distribution
+- Best performing class: **Happy** (F1: 0.888) · Lowest: **Disgust** (F1: 0.443)
 
-### 🖼️ **Input Modes**
-- **Image Upload**: Drag-and-drop or file picker for static images
-- **Video Analysis**: Process video files frame-by-frame
-- **Live Detection**: Real-time webcam emotion streaming
+### 🖼️ Input Modes
+- **Image Upload** — Drag-and-drop or file picker for static images
+- **Live Detection** — Real-time webcam emotion capture
 
-### 🔬 **Advanced Processing**
-- **Noise-Robust Preprocessing**: Median filtering and CLAHE normalization
-- **Landmark Detection**: MediaPipe Face Mesh (468 facial landmarks)
-- **Hybrid Feature Extraction**: Uses **EfficientNet-B0 backbone technique** for holistic face features combined with specialized Zone CNNs for micro-expressions (eyes, mouth, forehead, nose)
-- **Temporal Modeling**: LSTM layers capture sequential emotion transitions
-
-### 📊 **Analytics Dashboard**
+### 📊 Analytics Dashboard
 - Historical analysis records with timestamps
 - Emotion distribution statistics
-- Performance metrics and data point tracking
-- Export and data management features
+- Performance metrics and data export
 
 ---
 
-## 🏗️ System Architecture
+## 🏗️ Architecture
+
+The system follows a clean three-tier architecture:
 
 ```
-┌─────────────┐      ┌──────────────┐      ┌────────────────┐
-│   React     │─────▶│   Node.js    │─────▶│    Python      │
-│  Frontend   │      │   Backend    │      │   Inference    │
-│  (Vite)     │◀─────│  (Express)   │◀─────│   Engine       │
-└─────────────┘      └──────────────┘      └────────────────┘
-     │                      │                       │
-     │                      │                       │
-  UI Layer            API Gateway            ML Processing
-     │                      │                       │
-     ├─ Image Upload        ├─ Request Queue        ├─ MediaPipe
-     ├─ Webcam Capture      ├─ JSON Response        ├─ EfficientNet-B0
-     ├─ Results Display     ├─ Error Handling       ├─ Zone CNNs
-     └─ Analytics           └─ Health Check         └─ LSTM
+┌──────────────────────┐
+│   React Frontend     │  ← Vite dev server / production build
+│   (Vite + Tailwind)  │    Image upload, webcam capture,
+│                      │    results display, analytics dashboard
+└──────────┬───────────┘
+           │ HTTP / JSON (base64 image)
+           ▼
+┌──────────────────────┐
+│  Backend Server      │  ← Node.js + Express
+│  (Node.js/Express)   │    REST API gateway, request queue,
+│                      │    error handling, health monitoring
+└──────────┬───────────┘
+           │ Spawns Python subprocess
+           ▼
+┌──────────────────────┐
+│  ML Inference Engine │  ← Python service
+│  (Python/PyTorch)    │    Image preprocessing,
+│                      │    EfficientNet-B0 feature extraction,
+│                      │    emotion classification
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  ML Model            │
+│  EfficientNet-B0     │  ← Pretrained backbone (ImageNet)
+│  + FC Layer          │    Fine-tuned on RAF-DB (7 classes)
+│  + Softmax           │
+└──────────┬───────────┘
+           │
+           ▼
+┌──────────────────────┐
+│  Output              │
+│  - Emotion label     │
+│  - Confidence score  │
+│  - Probability dist. │
+└──────────────────────┘
 ```
 
 ### Processing Pipeline
 
-1. **Input** → User uploads image/video or activates webcam
-2. **Frontend** → Captures frame and converts to base64
-3. **Node.js Backend** → Queues request and spawns Python bridge
-4. **Python Inference** → 
-   - Face detection (MediaPipe)
-   - Landmark extraction (468 points)
-   - Zone segmentation (5 regions)
-   - Feature extraction (**EfficientNet-B0 Backbone** + Zone CNNs)
-   - Temporal analysis (LSTM)
-   - Classification (7 emotions)
-5. **Response** → JSON with emotion, confidence, probabilities
-6. **Frontend** → Displays results with visualizations
+1. User uploads image or captures webcam frame via React frontend
+2. Frontend encodes frame as base64 and sends POST request to Node.js backend
+3. Node.js queues the request and spawns the Python inference bridge
+4. Python service preprocesses the image and runs EfficientNet-B0 inference
+5. Softmax output is returned as a JSON response with emotion label, confidence, and full probability distribution
+6. Frontend displays results with visualizations and stores record in analytics
 
 ---
 
 ## 🔧 Prerequisites
 
-### Required Software
+| Requirement | Version |
+|-------------|---------|
+| Python | 3.8+ |
+| Node.js | 20.19+ |
+| npm | 8.0+ |
+| Git | Latest |
 
-- **Python**: 3.8 or higher
-- **Node.js**: 20.19.0 or higher
-- **npm**: 8.0.0 or higher
-- **Git**: Latest version
-
-### Hardware Requirements
-
-- **Minimum**: 8GB RAM, 2-core CPU
-- **Recommended**: 16GB RAM, 4-core CPU, GPU (CUDA compatible)
-- **Webcam**: For live detection feature
+**Hardware:**
+- Minimum: 8 GB RAM, 2-core CPU
+- Recommended: 16 GB RAM, 4-core CPU, CUDA-compatible GPU
+- Webcam required for live detection
 
 ---
 
 ## 📦 Installation
 
-### 1️⃣ Clone the Repository
+### 1. Clone the Repository
 
 ```bash
 git clone https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning.git
 cd Facial-Emotion-Recognition-Using-Deep-Learning
 ```
 
-### 2️⃣ Backend Setup
-
-#### Create Python Virtual Environment (Recommended)
+### 2. Python Environment Setup
 
 ```bash
-# Create virtual environment
+# Create and activate virtual environment
 python -m venv venv
+source venv/bin/activate        # Linux/Mac
+# venv\Scripts\activate         # Windows
 
-# Activate virtual environment
-# On Linux/Mac:
-source venv/bin/activate
-# On Windows:
-# venv\Scripts\activate
-```
-
-#### Install Python Dependencies
-
-```bash
-# Install all required Python packages
+# Install Python dependencies
 pip install -r requirements.txt
-
-# If you get permission errors without virtual environment, use:
-# pip install -r requirements.txt --break-system-packages
 ```
 
-**Key Dependencies:**
-- **PyTorch** (≥2.0.0): Deep learning framework
-- **OpenCV** (≥4.8.0): Image processing
-- **MediaPipe** (≥0.10.0): Face landmark detection
-- **NumPy, Pandas**: Data processing
-- **Albumentations, imgaug**: Data augmentation
-- **TensorBoard**: Training visualization
-- **PyYAML**: Configuration management
+**Key Python dependencies:**
 
-> **Note**: Using a virtual environment (recommended above) avoids the need for `--break-system-packages` flag.
+| Package | Purpose |
+|---------|---------|
+| PyTorch ≥ 2.0.0 | Deep learning framework |
+| Torchvision ≥ 0.15.0 | EfficientNet-B0 pretrained weights |
+| OpenCV ≥ 4.8.0 | Image preprocessing |
+| NumPy ≥ 1.24.0 | Numerical computing |
+| Scikit-learn ≥ 1.3.0 | Evaluation metrics |
+| Matplotlib / Seaborn | Training visualization |
+| PyYAML ≥ 6.0 | Configuration parsing |
 
-#### Optional: GPU Support
-
-For faster inference with CUDA-compatible GPUs:
+**Optional — GPU support (CUDA 11.8):**
 
 ```bash
-# Install PyTorch with CUDA support (example for CUDA 11.8)
 pip install torch torchvision --index-url https://download.pytorch.org/whl/cu118
-
-# Verify GPU availability
-python -c "import torch; print(f'CUDA available: {torch.cuda.is_available()}')"
+python -c "import torch; print('CUDA:', torch.cuda.is_available())"
 ```
 
-#### Optional: Alternative Face Detection
-
-To use dlib instead of MediaPipe, uncomment the dlib line in `requirements.txt`:
-
-```bash
-# Uncomment in requirements.txt:
-# dlib>=19.24.0
-
-pip install dlib
-```
-
-#### Install Node.js Dependencies
+### 3. Backend Setup
 
 ```bash
 cd backend
 npm install
 ```
 
-**Dependencies installed:**
-- `express`: Web framework
-- `cors`: Cross-origin resource sharing
-- `body-parser`: JSON request parsing
-
-### 3️⃣ Frontend Setup
+### 4. Frontend Setup
 
 ```bash
 cd frontend
 npm install
 ```
 
-**Dependencies installed:**
-- `react`, `react-dom`: UI framework
-- `axios`: HTTP client
-- `lucide-react`: Icon library
-- `@tailwindcss/vite`: Styling framework
-- `vite`: Build tool
-
-### 4️⃣ Start Training
-
-The system uses a combined dataset from **Raf-DB** and **AffectNet** for training with the **EfficientNet-B0 backbone technique**.
-
-```bash
-# Generate combined dataset CSVs
-python src/utils/generate_csv.py
-
-# Run training
-python src/training/train.py --config configs/config.yaml --train_csv train.csv --val_csv test.csv --device cuda
-```
-
-### 5️⃣ Run the Application
-
 ---
 
-## ⚙️ Configuration
+## 🧠 Model Training
 
-### Edit `configs/config.yaml`
+The model uses **EfficientNet-B0** (pretrained on ImageNet) fine-tuned on a combined **AffectNet + RAF-DB** training set, evaluated on **FER2013**.
+
+```bash
+# Run training
+python src/training/train.py \
+  --config configs/config.yaml \
+  --train_csv train.csv \
+  --val_csv test.csv \
+  --device cuda
+```
+
+**Training configuration (`configs/config.yaml`):**
 
 ```yaml
-# Emotion labels
 emotions:
   classes: ["Angry", "Disgust", "Fear", "Happy", "Sad", "Surprise", "Neutral"]
   num_classes: 7
 
-# Face detection
-face_detection:
-  method: "mediapipe"
-  mediapipe:
-    static_image_mode: false
-    max_num_faces: 1
-    min_detection_confidence: 0.5
-
-# Model architecture
 model:
-  global_cnn:
-    input_size: 224
-    feature_dim: 512
-  
-  zone_cnn:
-    input_size: 48
-    feature_dim: 128
+  backbone: efficientnet_b0
+  input_size: 224
+  pretrained: true
 
-# Hardware
 hardware:
-  device: "cuda"  # Set to "cpu" if no GPU available
-```
-
-### Backend Configuration
-
-Edit `backend/server.js` to change the port:
-
-```javascript
-const port = 5000;  // Default port
-```
-
-### Frontend Configuration
-
-Edit `frontend/src/App.jsx` to update API URL:
-
-```javascript
-const API_BASE_URL = 'http://localhost:5000';
+  device: "cuda"   # set to "cpu" if no GPU
 ```
 
 ---
@@ -290,80 +210,58 @@ const API_BASE_URL = 'http://localhost:5000';
 
 ### Start the Application
 
-#### Option 1: Separate Terminals (Development)
-
-**Terminal 1 - Backend:**
+**Terminal 1 — Backend:**
 ```bash
 cd backend
 node server.js
 ```
 
-**Terminal 2 - Frontend:**
+**Terminal 2 — Frontend:**
 ```bash
 cd frontend
 npm run dev
 ```
 
-#### Option 2: Production Build
+### Access
 
-```bash
-# Build frontend
-cd frontend
-npm run build
-
-# Serve with backend
-cd ../backend
-node server.js
-# Frontend will be served at http://localhost:5000
-```
-
-### Access the Application
-
-Open your browser and navigate to:
-- **Development**: `http://localhost:5173`
-- **Production**: `http://localhost:5000`
+| Mode | URL |
+|------|-----|
+| Development | `http://localhost:5173` |
+| Production | `http://localhost:5000` |
 
 ### Using the Interface
 
-#### 📸 **Image/Video Analysis**
+**Image Analysis:**
+1. Open the **Analyze** tab
+2. Drag and drop an image or click to upload
+3. Click **RUN INFERENCE**
+4. View emotion prediction, confidence score, and probability distribution
 
-1. Click on the **"Analyze"** tab
-2. Drag and drop an image/video or click to upload
-3. Click **"RUN INFERENCE"** button
-4. View emotion prediction with confidence scores
+**Live Detection:**
+1. Open the **Live Detection** tab
+2. Click **INITIALIZE CAMERA** and allow browser camera access
+3. Click **ANALYZE EMOTION** to capture and classify
+4. Click **TERMINATE SESSION** to stop
 
-#### 🎥 **Live Detection**
-
-1. Click on the **"Live Detection"** tab
-2. Click **"INITIALIZE CAMERA"**
-3. Allow browser camera access
-4. Click **"ANALYZE EMOTION"** to capture and analyze
-5. Click **"TERMINATE SESSION"** to stop
-
-#### 📊 **View Analytics**
-
-- **Records Tab**: View analysis history
-- **Metrics Tab**: See statistical breakdowns
+**Analytics:**
+- **Records tab** — view analysis history with timestamps
+- **Metrics tab** — see emotion distribution statistics
 
 ---
 
 ## 📡 API Documentation
 
 ### Base URL
-
 ```
 http://localhost:5000
 ```
 
 ### Endpoints
 
-#### 1. Health Check
-
+#### Health Check
 ```http
 GET /health
 ```
-
-**Response:**
 ```json
 {
   "status": "healthy",
@@ -372,21 +270,20 @@ GET /health
 }
 ```
 
-#### 2. Emotion Prediction
-
+#### Emotion Prediction
 ```http
 POST /predict
 Content-Type: application/json
 ```
 
-**Request Body:**
+**Request:**
 ```json
 {
-  "image": "base64_encoded_image_data"
+  "image": "<base64_encoded_image>"
 }
 ```
 
-**Success Response (200):**
+**Success (200):**
 ```json
 {
   "emotion": "Happy",
@@ -404,25 +301,49 @@ Content-Type: application/json
 }
 ```
 
-**Error Response (400):**
+**Error (400):**
 ```json
-{
-  "error": "No image data provided"
-}
+{ "error": "No image data provided" }
 ```
 
-**Error Response (500):**
+**Error (500):**
 ```json
-{
-  "error": "Inference timeout"
-}
+{ "error": "Inference timeout" }
 ```
 
-### Request Processing
+**Notes:**
+- Requests are processed sequentially via a queue
+- Timeout: 30 seconds per request
 
-- **Queue System**: Requests are processed sequentially
-- **Timeout**: 30 seconds per request
-- **Rate Limiting**: None (implement for production)
+---
+
+## 📊 Model Performance
+
+Trained for 15 epochs on **AffectNet + RAF-DB** (combined), tested on **FER2013**. Early stopping triggered at epoch 15; best checkpoint saved at epoch 5.
+
+| Metric | Value |
+|--------|-------|
+| Overall Accuracy | 75.33% |
+| Macro Precision | 0.6628 |
+| Macro Recall | 0.6942 |
+| Macro F1-Score | 0.6738 |
+| Weighted F1-Score | 0.7590 |
+| Final Train Accuracy | 95.95% |
+| Best Val Loss | 2.3686 |
+
+**Per-class breakdown:**
+
+| Emotion | Precision | Recall | F1-Score |
+|---------|-----------|--------|----------|
+| Angry | 0.6412 | 0.6728 | 0.6566 |
+| Disgust | 0.3905 | 0.5125 | 0.4432 |
+| Fear | 0.5890 | 0.5811 | 0.5850 |
+| Happy | 0.9465 | 0.8363 | **0.8880** |
+| Sad | 0.7390 | 0.7050 | 0.7216 |
+| Surprise | 0.6266 | 0.8723 | 0.7294 |
+| Neutral | 0.7064 | 0.6794 | 0.6927 |
+
+> **Note:** The large gap between training accuracy (95.95%) and validation accuracy reflects overfitting. Improvement areas: class-weighted loss for Disgust, stronger augmentation, and regularization.
 
 ---
 
@@ -431,46 +352,40 @@ Content-Type: application/json
 ```
 emotion_recognition/
 │
-├── backend/                          # Node.js Backend
-│   ├── server.js                     # Express server with queue processing
-│   ├── inference_bridge.py           # Python inference wrapper
-│   ├── package.json                  # Node.js dependencies
+├── backend/
+│   ├── server.js               # Express server with request queue
+│   ├── inference_bridge.py     # Python subprocess wrapper
+│   ├── package.json
 │   └── package-lock.json
 │
-├── frontend/                         # React Frontend
+├── frontend/
 │   ├── src/
-│   │   ├── App.jsx                   # Main application component
-│   │   ├── App.css                   # Component styles
-│   │   ├── index.css                 # Global styles with 3D effects
-│   │   ├── main.jsx                  # React entry point
-│   │   └── assets/                   # Images and icons
-│   │
-│   ├── public/                       # Static assets
-│   ├── index.html                    # HTML template
-│   ├── vite.config.js                # Vite configuration
-│   ├── package.json                  # Frontend dependencies
-│   └── eslint.config.js              # ESLint configuration
+│   │   ├── App.jsx             # Main application component
+│   │   ├── App.css
+│   │   ├── index.css
+│   │   └── main.jsx
+│   ├── public/
+│   ├── index.html
+│   ├── vite.config.js
+│   └── package.json
 │
-├── src/                              # Python ML Code
+├── src/
 │   ├── inference/
-│   │   └── inference_utils.py        # Base inference class
-│   ├── models/                       # CNN & LSTM architectures
-│   ├── preprocessing/                # Image preprocessing
-│   └── utils/                        # Helper functions
+│   │   └── inference_utils.py  # Inference class
+│   ├── models/                 # EfficientNet-B0 model definition
+│   ├── preprocessing/          # Image preprocessing utilities
+│   └── utils/                  # Helper functions
 │
 ├── configs/
-│   └── config.yaml                   # System configuration
+│   └── config.yaml             # System configuration
 │
-├── checkpoints/                      # Trained model weights
-│   └── best_model.pth
+├── checkpoints/
+│   └── best_model.pth          # Trained model weights
 │
-├── data/                             # Datasets (not included)
-│   └── fer2013/
-│
-├── requirements.txt                  # Python dependencies
-├── README.md                         # This file
-├── ARCHITECTURE.md                   # Technical documentation
-└── .gitignore                        # Git ignore rules
+├── requirements.txt
+├── README.md
+├── ARCHITECTURE.md
+└── .gitignore
 ```
 
 ---
@@ -478,153 +393,96 @@ emotion_recognition/
 ## 🛠️ Technology Stack
 
 ### Frontend
-
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | React | 19.2.0 | UI framework |
 | Vite | 7.3.1 | Build tool & dev server |
-| Tailwind CSS | 4.1.18 | Styling framework |
+| Tailwind CSS | 4.1.18 | Styling |
 | Axios | 1.13.5 | HTTP client |
-| Lucide React | 0.563.0 | Icon library |
+| Lucide React | 0.563.0 | Icons |
 
 ### Backend
-
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Node.js | 20.19+ | Runtime environment |
+| Node.js | 20.19+ | Runtime |
 | Express | 5.2.1 | Web framework |
 | CORS | 2.8.6 | Cross-origin requests |
 | Body Parser | 2.2.2 | JSON parsing |
 
 ### Machine Learning
-
 | Technology | Version | Purpose |
 |------------|---------|---------|
 | Python | 3.8+ | ML runtime |
-| PyTorch | ≥2.0.0 | Deep learning framework |
-| Torchvision | ≥0.15.0 | Vision utilities |
-| OpenCV | ≥4.8.0 | Image processing |
-| MediaPipe | ≥0.10.0 | Face landmark detection |
-| NumPy | ≥1.24.0 | Numerical computing |
-| Pandas | ≥2.0.0 | Data manipulation |
-| Scikit-learn | ≥1.3.0 | ML utilities |
-| Albumentations | ≥1.3.0 | Data augmentation |
-| TensorBoard | ≥2.13.0 | Training visualization |
-| PyYAML | ≥6.0 | Configuration parsing |
-| Matplotlib | ≥3.7.0 | Plotting |
-| Seaborn | ≥0.12.0 | Statistical visualization |
+| PyTorch | ≥ 2.0.0 | Deep learning |
+| Torchvision | ≥ 0.15.0 | EfficientNet-B0 |
+| OpenCV | ≥ 4.8.0 | Image processing |
+| NumPy | ≥ 1.24.0 | Numerical computing |
+| Scikit-learn | ≥ 1.3.0 | Metrics |
+| Matplotlib / Seaborn | ≥ 3.7.0 | Visualization |
+| PyYAML | ≥ 6.0 | Config parsing |
 
 ---
 
 ## 🐛 Troubleshooting
 
-### Common Issues
-
-#### 1. **Backend won't start**
-
-**Error:** `EADDRINUSE: address already in use`
-
-**Solution:**
+**Port already in use:**
 ```bash
-# Find process using port 5000
 lsof -i :5000
-
-# Kill the process
 kill -9 <PID>
-
-# Or change port in server.js
 ```
 
-#### 2. **Python bridge fails**
-
-**Error:** `No module named 'torch'`
-
-**Solution:**
+**Missing PyTorch module:**
 ```bash
-# Reinstall PyTorch
-pip install torch torchvision --break-system-packages
+pip install torch torchvision
 ```
 
-#### 3. **Model not found**
-
-**Error:** `No model found`
-
-**Solution:**
+**Model checkpoint not found:**
 ```bash
-# Ensure model exists
 ls -la checkpoints/best_model.pth
-
-# Check path in inference_bridge.py
+# Ensure the path in inference_bridge.py matches
 ```
 
-#### 4. **Camera access denied**
-
-**Error:** `Camera access denied or not available`
-
-**Solution:**
+**Camera access denied:**
 - Allow camera permissions in browser settings
-- Use HTTPS for production (required for camera access)
-- Check browser console for detailed errors
+- HTTPS required in production for camera access
 
-#### 5. **CORS errors**
-
-**Error:** `Access-Control-Allow-Origin`
-
-**Solution:**
-- Verify CORS is enabled in `backend/server.js`
-- Check API_BASE_URL in frontend matches backend URL
-
-### Debug Mode
-
-Enable verbose logging:
-
-```bash
-# Backend - already logs to stderr
-node server.js
-
-# Check browser console for frontend errors
-# Press F12 → Console tab
-```
+**CORS errors:**
+- Verify `API_BASE_URL` in `frontend/src/App.jsx` matches the backend URL
+- Confirm CORS middleware is enabled in `backend/server.js`
 
 ---
 
 ## 🤝 Contributing
 
-Contributions are welcome! Please follow these steps:
-
 1. Fork the repository
-2. Create a feature branch (`git checkout -b feature/AmazingFeature`)
-3. Commit your changes (`git commit -m 'Add AmazingFeature'`)
-4. Push to the branch (`git push origin feature/AmazingFeature`)
+2. Create a feature branch: `git checkout -b feature/your-feature`
+3. Commit your changes: `git commit -m 'Add your feature'`
+4. Push to the branch: `git push origin feature/your-feature`
 5. Open a Pull Request
 
-### Code Style
-
-- **Python**: Follow PEP 8
-- **JavaScript**: Use ESLint configuration provided
-- **React**: Functional components with hooks
+**Code style:** PEP 8 for Python · ESLint config for JavaScript · functional React components with hooks.
 
 ---
 
 ## 📄 License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the MIT License. See [LICENSE](LICENSE) for details.
 
 ---
 
 ## 🙏 Acknowledgments
 
-- **MediaPipe**: Face landmark detection
-- **PyTorch**: Deep learning framework
-- **Raf-DB & AffectNet**: Training data
-- **React**: Frontend framework
-- **Tailwind CSS**: UI styling
+- [AffectNet](https://www.kaggle.com/datasets/mstjebashazida/affectnet) — Training dataset
+- [RAF-DB](https://www.kaggle.com/datasets/shuvoalok/raf-db-dataset) — Training dataset
+- [FER2013](https://www.kaggle.com/datasets/msambare/fer2013) — Test dataset
+- [EfficientNet](https://arxiv.org/abs/1905.11946) — Model backbone
+- [PyTorch](https://pytorch.org/) — Deep learning framework
+- [React](https://react.dev/) — Frontend framework
+- [Tailwind CSS](https://tailwindcss.com/) — UI styling
 
 ---
 
 ## 📧 Contact
 
-For questions or support:
-
-- **GitHub Issues**: [Create an issue](https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning/issues)
-- **Email**: shashankreddyremidi@gmail.com
+- **GitHub Issues:** [Create an issue](https://github.com/shashank1833/Facial-Emotion-Recognition-Using-Deep-Learning/issues)
+- **Email:** shashankreddyremidi@gmail.com
