@@ -33,7 +33,7 @@ def create_df(path):
                 print(f"Processing {label} -> {norm} in {path}")
                 for img in os.listdir(label_path):
                     if img.lower().endswith(('.png', '.jpg', '.jpeg')):
-                        # Use forward slashes for cross-platform compatibility (Windows and Colab)
+                        # Use forward slashes for cross-platform compatibility
                         full_path = os.path.join(label_path, img).replace('\\', '/')
                         data.append([full_path, norm])
     return pd.DataFrame(data, columns=["image_path", "label"])
