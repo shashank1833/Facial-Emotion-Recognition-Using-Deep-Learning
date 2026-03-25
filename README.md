@@ -19,7 +19,7 @@
 
 ## 🎯 Overview
 
-Aura AI is a full-stack facial emotion recognition application that classifies human facial expressions into 7 emotion categories in real time. The system uses an **EfficientNet-B0** convolutional neural network trained on a combined **AffectNet + RAF-DB** dataset and tested on **FER2013**, served through a Python inference engine, a Node.js/Express REST API, and a React/Vite frontend.
+This is a full-stack facial emotion recognition application that classifies human facial expressions into 7 emotion categories in real time. The system uses an **EfficientNet-B0** convolutional neural network trained on a combined **AffectNet + RAF-DB** dataset and tested on **FER2013**, served through a Python inference engine, a Node.js/Express REST API, and a React/Vite frontend.
 
 ### Key Capabilities
 
@@ -349,43 +349,60 @@ Trained for 15 epochs on **AffectNet + RAF-DB** (combined), tested on **FER2013*
 
 ## 📁 Project Structure
 
-```
+```text
 emotion_recognition/
-│
-├── backend/
+├── backend/                    # Node.js API Gateway
 │   ├── server.js               # Express server with request queue
-│   ├── inference_bridge.py     # Python subprocess wrapper
-│   ├── package.json
+│   ├── inference_bridge.py     # Python bridge for model inference
+│   ├── package.json            # Node.js dependencies
 │   └── package-lock.json
 │
-├── frontend/
+├── frontend/                   # React Frontend (Vite + Tailwind)
 │   ├── src/
-│   │   ├── App.jsx             # Main application component
-│   │   ├── App.css
-│   │   ├── index.css
-│   │   └── main.jsx
-│   ├── public/
-│   ├── index.html
-│   ├── vite.config.js
-│   └── package.json
+│   │   ├── App.jsx             # Main application UI
+│   │   ├── App.css             # UI styling
+│   │   ├── index.css           # Global Tailwind styles
+│   │   └── main.jsx            # React entry point
+│   ├── public/                 # Static assets
+│   ├── index.html              # HTML template
+│   ├── vite.config.js          # Vite configuration
+│   └── package.json            # Frontend dependencies
 │
-├── src/
-│   ├── inference/
-│   │   └── inference_utils.py  # Inference class
-│   ├── models/                 # EfficientNet-B0 model definition
-│   ├── preprocessing/          # Image preprocessing utilities
-│   └── utils/                  # Helper functions
+├── src/                        # Core Machine Learning Logic
+│   ├── models/                 # Model Architecture
+│   │   ├── hybrid_cnn.py       # EfficientNet-B0 backbone technique
+│   │   ├── temporal_lstm.py    # Temporal modeling for video sequences
+│   │   └── full_model.py       # Combined Hybrid CNN-LSTM model
+│   ├── preprocessing/          # Image Preprocessing
+│   │   └── noise_robust.py     # CLAHE & Median filtering
+│   ├── landmark_detection/     # MediaPipe Face Mesh integration
+│   │   └── mediapipe_detector.py
+│   ├── zone_extraction/        # Facial Zone (Eyes/Mouth) logic
+│   │   ├── zone_definitions.py
+│   │   └── zone_extractor.py
+│   ├── training/               # Training Pipeline
+│   │   ├── data_loader.py      # Multi-dataset CSV loading
+│   │   ├── augmentation.py     # Data augmentation strategies
+│   │   ├── train.py            # Main training script
+│   │   └── evaluate.py         # Model evaluation script
+│   ├── inference/              # Inference Utilities
+│   │   ├── inference_utils.py  # Model wrapper for predictions
+│   │   ├── image_inference.py  # Static image testing
+│   │   └── video_inference.py  # Real-time video processing
+│   └── utils/                  # Helper Functions
+│       ├── metrics.py          # F1, Accuracy, Confusion Matrix
+│       └── visualization.py    # Performance graphing
 │
 ├── configs/
-│   └── config.yaml             # System configuration
+│   └── config.yaml             # Hyperparameters & system configuration
 │
-├── checkpoints/
-│   └── best_model.pth          # Trained model weights
+├── checkpoints/                # Saved model weights (.pth)
 │
-├── requirements.txt
-├── README.md
-├── ARCHITECTURE.md
-└── .gitignore
+├── requirements.txt            # Python dependencies
+├── README.md                   # Project documentation
+├── ARCHITECTURE.md             # Detailed system design
+├── LICENSE                     # MIT License
+└── .gitignore                  # Git exclusion rules
 ```
 
 ---
