@@ -12,7 +12,7 @@ app.use(cors());
 app.use(bodyParser.json({ limit: '50mb' }));
 
 // Path to Python bridge
-const pythonPath = 'python';
+const pythonPath = process.platform === 'win32' ? 'python' : 'python3';
 const scriptPath = path.join(__dirname, 'inference_bridge.py');
 
 // Initialize Python process
@@ -26,7 +26,15 @@ function startPythonBridge() {
     });
 
     pythonProcess.stderr.on('data', (data) => {
-        console.error(`Python Error: ${data}`);
+        const msg = data.toString();
+        // Ignore MediaPipe proto output to keep logs clean
+        if (msg.includes('node {') || msg.includes('calculator:') || msg.includes('input_stream:')) return;
+        console.error(`Python Error: ${msg}`);
+    });
+
+    pythonProcess.stdout.on('data', (data) => {
+        const msg = data.toString();
+        console.log(`Python Output: ${msg}`);
     });
 
     pythonProcess.on('close', (code) => {
@@ -49,13 +57,35 @@ async function processQueue() {
 
     try {
         const responsePromise = new Promise((resolve, reject) => {
+            let buffer = '';
             const onData = (data) => {
-                pythonProcess.stdout.removeListener('data', onData);
-                resolve(data.toString());
+                const str = data.toString();
+                buffer += str;
+                
+                // Try to find a complete JSON object in the buffer
+                const lines = buffer.split('\n');
+                for (let i = 0; i < lines.length; i++) {
+                    const line = lines[i].trim();
+                    if (line.startsWith('{') && line.endsWith('}')) {
+                        try {
+                            const parsed = JSON.parse(line);
+                            // If it has emotion or error, it's our result
+                            if (parsed.emotion || parsed.error) {
+                                pythonProcess.stdout.removeListener('data', onData);
+                                resolve(line);
+                                return;
+                            }
+                        } catch (e) {
+                            // Not a valid JSON or not our JSON, ignore
+                        }
+                    }
+                }
+                // Keep the last partial line in the buffer
+                buffer = lines[lines.length - 1];
             };
             pythonProcess.stdout.on('data', onData);
             
-            // Timeout if Python takes too long (increased to 30s for slow model loading)
+            // Timeout if Python takes too long
             setTimeout(() => {
                 pythonProcess.stdout.removeListener('data', onData);
                 reject(new Error('Inference timeout'));
@@ -96,6 +126,10 @@ app.get('/health', (req, res) => {
         backend: 'nodejs',
         python_bridge: pythonProcess ? 'active' : 'inactive'
     });
+});
+
+app.get('/', (req, res) => {
+    res.send('Aura AI Backend is running. Use /health for status or /predict for inference.');
 });
 
 app.listen(port, () => {

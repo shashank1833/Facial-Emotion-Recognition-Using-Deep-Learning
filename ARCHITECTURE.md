@@ -1,6 +1,6 @@
-# 🏗️ Aura AI - System Architecture
+# 🏗️ Facial Emotion Recognition System - System Architecture
 
-This document provides a detailed overview of the architectural design, component interaction, and technology stack of the Aura AI Facial Emotion Recognition System.
+This document provides a detailed overview of the architectural design, component interaction, and technology stack of the  Facial Emotion Recognition System.
 
 ---
 
